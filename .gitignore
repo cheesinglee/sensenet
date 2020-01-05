@@ -1,0 +1,12 @@
+*.pyc
+*.orig
+*.log
+*.h5
+build
+dist
+laminar.egg-info/
+/.eggs
+/config.ini
+/*.csv
+/*.json
+.DS_Store
