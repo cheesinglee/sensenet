@@ -97,7 +97,7 @@ def graph_input_shape(image_network):
     assert len(input_shape) == 3 and input_shape[-1] in [1, 3]
     return [None, input_shape[1], input_shape[0], input_shape[2]]
 
-def image_preprocessor(image_network, images_per_row, variables):
+def image_preprocessor(image_network, images_per_row):
     network = complete_image_network(image_network)
     metadata = network['metadata']
 
@@ -109,10 +109,7 @@ def image_preprocessor(image_network, images_per_row, variables):
     all_images = tf.reshape(X, [-1] + in_shape[1:])
     Xin = normalize_image(all_images, image_network)
 
-    is_training = variables['is_training']
-    keep_prob = variables['keep_prob']
-
-    _, preds = make_layers(Xin, is_training, network['layers'], keep_prob)
+    _, preds = make_layers(Xin, network['layers'], None)
     outputs = tf.reshape(preds, [-1, images_per_row, n_out])
 
     return {'image_X': X, 'image_preds': preds, 'image_out': outputs}

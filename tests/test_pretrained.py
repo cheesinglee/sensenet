@@ -8,33 +8,27 @@ tf = sensenet.importers.import_tensorflow()
 from sensenet.pretrained import get_pretrained_network, get_pretrained_readout
 from sensenet.pretrained import cnn_resource_path
 from sensenet.graph.construct import make_layers
-from sensenet.graph.classifier import create_placeholders, create_dense_layers
+from sensenet.graph.classifier import create_dense_layers
 from sensenet.graph.image import image_preprocessor, read_fn
 from sensenet.graph.bounding_box import box_detector, box_projector
 
 def image_file_projector(loader, variables, tf_session):
     X = variables['image_X']
     preds = variables['image_preds']
-    is_training = variables['is_training']
-    keep_prob = variables['keep_prob']
-
-    batch_params = {keep_prob: 1.0, is_training: False}
 
     def proj(image_path):
         img_in = loader(image_path)
         # Add axes - one row and one image per row
-        batch_params[X] = img_in[np.newaxis, np.newaxis, ...]
+        batch_params = {X: img_in[np.newaxis, np.newaxis, ...]}
 
         return tf_session.run(preds, feed_dict=batch_params)
 
     return proj
 
 def project_and_classify(network_name, accuracy_threshold):
-    variables = create_placeholders()
-
     network = get_pretrained_network(network_name)
     readout = get_pretrained_readout(network)
-    variables.update(image_preprocessor(network, 1, variables))
+    variables = image_preprocessor(network, 1)
 
     noutputs = network['metadata']['outputs']
 
@@ -79,11 +73,10 @@ def test_mobilenetv2():
 
 def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
     test_path = 'tests/data/pizza_people.jpg'
-    variables = create_placeholders()
 
     network = get_pretrained_network(network_name)
     readout = get_pretrained_readout(network)
-    variables.update(box_detector(network, readout, variables, 80, threshold))
+    variables = box_detector(network, readout, 80, threshold)
 
     with tf.Session() as sess:
         detector = box_projector(read_fn(network), variables, sess)

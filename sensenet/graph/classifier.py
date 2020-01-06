@@ -5,22 +5,13 @@ from sensenet.graph.preprocess import create_preprocessors
 from sensenet.graph.preprocess import concatenate_preprocessed_inputs
 from sensenet.graph.construct import make_layers
 
-def create_placeholders():
-    return {
-        'is_training': tf.placeholder(tf.bool, name='is_training'),
-        'keep_prob': tf.placeholder(tf.float32, name='keep_prob')
-    }
-
 def create_dense_layers(layers_params, variables, embedded):
-    trn = variables['is_training']
-    kp = variables['keep_prob']
-
     if embedded:
         Xin = variables['embedded_X']
     else:
         Xin = variables['preprocessed_X']
 
-    layers, outputs = make_layers(Xin, trn, layers_params, keep_prob=kp)
+    layers, outputs = make_layers(Xin, layers_params, None)
 
     return outputs
 

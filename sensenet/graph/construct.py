@@ -19,7 +19,7 @@ def block_layer(X, params, is_training, paths, type_str):
 
     for path in paths:
         if params[path] is not None:
-            players, output = make_layers(X, is_training, params[path])
+            players, output = make_layers(X, params[path], is_training)
             layer[path] = players
             outpaths.append(output)
         else:
@@ -89,7 +89,7 @@ def yolo_output_branches(layer_outputs, params, is_training):
     for i, branch in enumerate(branches):
         branch_input = layer_outputs[branch['input']]
         path = branch['convolution_path']
-        players, output = make_layers(branch_input, is_training, path)
+        players, output = make_layers(branch_input, path, is_training)
 
         out_branch = dict(branch)
         out_branch['convolution_path'] = players
@@ -116,7 +116,7 @@ LAYER_FUNCTIONS.update(CORE_LAYERS)
 LAYER_FUNCTIONS.update(CONVOLUTIONAL_LAYERS)
 LAYER_FUNCTIONS.update(BLOCK_LAYERS)
 
-def make_all_outputs(X, is_training, layers_params, keep_prob):
+def make_all_outputs(X, layers_params, is_training, keep_prob):
     outlayers = []
     all_outputs = []
 
@@ -140,8 +140,8 @@ def make_all_outputs(X, is_training, layers_params, keep_prob):
 
     return outlayers, all_outputs
 
-def make_layers(X, is_training, layers_params, keep_prob=None):
-    layers, outputs = make_all_outputs(X, is_training, layers_params, keep_prob)
+def make_layers(X, layers_params, is_training, keep_prob=None):
+    layers, outputs = make_all_outputs(X, layers_params, is_training, keep_prob)
 
     if layers:
         return layers, outputs[-1]

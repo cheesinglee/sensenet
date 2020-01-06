@@ -117,7 +117,7 @@ def output_boxes(outputs, anchors, nclasses, score_thresh=0.6, iou_thresh=0.5):
 
     return boxes_, scores_, classes_
 
-def box_detector(cnn, readout, variables, nclasses, threshold):
+def box_detector(cnn, readout, nclasses, threshold):
     network = complete_image_network(cnn, readout)
     anchors = get_anchors(network)
     layers = network['layers']
@@ -126,11 +126,8 @@ def box_detector(cnn, readout, variables, nclasses, threshold):
     X = tf.placeholder(tf.float32, shape=input_shape, name='input_data')
     Xin = normalize_image(X, network)
 
-    trn = variables['is_training']
-    keep_prob = variables['keep_prob']
-
-    _, outputs = make_all_outputs(Xin, trn, layers[:-1], keep_prob)
-    _, feats = yolo_output_branches(outputs, layers[-1], trn)
+    _, outputs = make_all_outputs(Xin, layers[:-1], None, None)
+    _, feats = yolo_output_branches(outputs, layers[-1], None)
 
     box_preds = output_boxes(feats, anchors, nclasses, score_thresh=threshold)
 
@@ -139,13 +136,9 @@ def box_detector(cnn, readout, variables, nclasses, threshold):
 def box_projector(loader, variables, tf_session):
     X = variables['bounding_box_X']
     preds = variables['bounding_box_preds']
-    is_training = variables['is_training']
-    keep_prob = variables['keep_prob']
-
-    batch_params = {keep_prob: 1.0, is_training: False}
 
     def boxes_for_image(image_path):
-        batch_params[X] = np.expand_dims(loader(image_path), axis=0)
+        batch_params = {X: np.expand_dims(loader(image_path), axis=0)}
         return tf_session.run(preds, feed_dict=batch_params)
 
     return boxes_for_image
