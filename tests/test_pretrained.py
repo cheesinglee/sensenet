@@ -9,7 +9,7 @@ from sensenet.pretrained import get_pretrained_network, get_pretrained_readout
 from sensenet.pretrained import cnn_resource_path
 from sensenet.graph.construct import make_layers
 from sensenet.graph.classifier import create_placeholders, create_dense_layers
-from sensenet.graph.image import image_preprocessor, make_loader
+from sensenet.graph.image import image_preprocessor, read_fn
 from sensenet.graph.bounding_box import box_detector, box_projector
 
 def image_file_projector(loader, variables, tf_session):
@@ -20,15 +20,10 @@ def image_file_projector(loader, variables, tf_session):
 
     batch_params = {keep_prob: 1.0, is_training: False}
 
-    def proj(image_path_s):
-        if isinstance(image_path_s, list):
-            if len(image_path_s) > 1:
-                imgs = [loader(path) for path in image_path_s]
-                batch_params[X] = np.squeeze(np.asarray(imgs))
-            else:
-                batch_params[X] = loader(image_path_s[0])
-        else:
-            batch_params[X] = loader(image_path_s)
+    def proj(image_path):
+        img_in = loader(image_path)
+        # Add axes - one row and one image per row
+        batch_params[X] = img_in[np.newaxis, np.newaxis, ...]
 
         return tf_session.run(preds, feed_dict=batch_params)
 
@@ -41,14 +36,14 @@ def project_and_classify(network_name, accuracy_threshold):
     readout = get_pretrained_readout(network)
     variables.update(image_preprocessor(network, 1, variables))
 
-    loader = make_loader(network)
     noutputs = network['metadata']['outputs']
 
     with tf.Session() as sess:
-        proj = image_file_projector(loader, variables, sess)
+        proj = image_file_projector(read_fn(network), variables, sess)
 
         X = tf.placeholder(tf.float32, shape=(None, noutputs))
-        outputs = create_dense_layers(X, readout, variables)
+        variables['preprocessed_X'] = X
+        outputs = create_dense_layers(readout, variables, False)
 
         sess.run(tf.global_variables_initializer())
         Xdog = proj('tests/data/dog.jpg').tolist()
@@ -67,7 +62,7 @@ def project_and_classify(network_name, accuracy_threshold):
                     assert p < 0.01
 
 
-def test_resnet():
+def test_resnet50():
     project_and_classify('resnet50', 0.99)
 
 def test_mobilenet():
@@ -88,11 +83,10 @@ def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
 
     network = get_pretrained_network(network_name)
     readout = get_pretrained_readout(network)
-    loader = make_loader(network)
     variables.update(box_detector(network, readout, variables, 80, threshold))
 
     with tf.Session() as sess:
-        detector = box_projector(loader, variables, sess)
+        detector = box_projector(read_fn(network), variables, sess)
 
         sess.run(tf.global_variables_initializer())
         boxes, scores, classes = detector(test_path)

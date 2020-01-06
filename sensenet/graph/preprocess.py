@@ -4,23 +4,30 @@ tf = sensenet.importers.import_tensorflow()
 def create_preprocessors(preprocessors):
     locations = []
 
+    num_idxs = []
     means = []
     stdevs = []
 
+    bin_idxs = []
     zero_values = []
+
+    cat_idxs = []
     depths = []
     n_images = 0
 
-    for proc in preprocessors:
+    for i, proc in enumerate(preprocessors):
         if proc['type'] == 'numeric':
             if 'mean' in proc:
+                num_idxs.append(i)
                 locations.append(('numeric', len(means)))
                 means.append(proc['mean'])
                 stdevs.append(proc['stdev'])
             elif 'one_value' in proc:
+                bin_idxs.append(i)
                 locations.append(('binary', len(zero_values)))
                 zero_values.append(proc['zero_value'])
         elif proc['type'] == 'categorical':
+            cat_idxs.append(i)
             locations.append(('categorical', len(depths)))
             depths.append(len(proc['values']))
         elif proc['type'] == 'image':
@@ -31,7 +38,7 @@ def create_preprocessors(preprocessors):
 
     if len(means) > 0:
         num_shape = (None, len(means))
-        nX = tf.placeholder(tf.float32, shape=num_shape, name='numeric_input')
+        nX = tf.gather(tf.float32, shape=num_shape, name='numeric_input')
         nMean = tf.constant(means, dtype=tf.float32)
         nStd = tf.constant(stdevs, dtype=tf.float32)
 

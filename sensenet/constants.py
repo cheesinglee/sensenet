@@ -7,8 +7,17 @@ LEAKY_RELU_ALPHA = 0.1
 
 # Pixel normalizing factors for pretrained networks
 CAFFE_MEAN = [103.939, 116.779, 123.68]
-TORCH_MEAN = [0.485, 0.456, 0.406]
-TORCH_STD = [0.229, 0.224, 0.225]
+TORCH_MEAN = [c * 255 for c in [0.485, 0.456, 0.406]]
+TORCH_STD = [c * 255 for c in [0.229, 0.224, 0.225]]
+
+IMAGE_STANDARDIZERS = {
+    None: (0., 1.),
+    'normalizing': (0, 255.),
+    'centering': (127.5, 127.5),
+    'skewed_centering': (128., 128.),
+    'channelwise_centering': (CAFFE_MEAN, 1.),
+    'channelwise_standardizing': (TORCH_MEAN, TORCH_STD)
+}
 
 MAX_BOUNDING_BOXES = 16
 BOX_IGNORE_THRESH = 0.5

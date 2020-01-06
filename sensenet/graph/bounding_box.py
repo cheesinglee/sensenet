@@ -4,6 +4,7 @@ tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import MAX_BOUNDING_BOXES, MASKS
 from sensenet.graph.image import complete_image_network, graph_input_shape
+from sensenet.graph.image import normalize_image
 from sensenet.graph.construct import make_all_outputs, yolo_output_branches
 
 def shape(tensor):
@@ -122,11 +123,12 @@ def box_detector(cnn, readout, variables, nclasses, threshold):
 
     input_shape = graph_input_shape(network)
     X = tf.placeholder(tf.float32, shape=input_shape, name='input_data')
+    Xin = normalize_image(X, network)
 
     trn = variables['is_training']
     keep_prob = variables['keep_prob']
 
-    _, outputs = make_all_outputs(X, trn, layers[:-1], keep_prob)
+    _, outputs = make_all_outputs(Xin, trn, layers[:-1], keep_prob)
     _, feats = yolo_output_branches(outputs, layers[-1], trn)
 
     box_preds = output_boxes(feats, anchors, nclasses, score_thresh=threshold)
@@ -142,7 +144,7 @@ def box_projector(loader, variables, tf_session):
     batch_params = {keep_prob: 1.0, is_training: False}
 
     def boxes_for_image(image_path):
-        batch_params[X] = loader(image_path)
+        batch_params[X] = np.expand_dims(loader(image_path), axis=0)
         return tf_session.run(preds, feed_dict=batch_params)
 
     return boxes_for_image
