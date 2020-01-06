@@ -7,6 +7,7 @@ tf = sensenet.importers.import_tensorflow()
 from sensenet.constants import IMAGE_STANDARDIZERS, ANCHORS
 from sensenet.pretrained import get_pretrained_layers
 from sensenet.graph.construct import make_layers
+from sensenet.graph.layers.utils import make_tensor
 
 def read_image(path, input_image_shape):
     img = Image.open(path)
@@ -60,15 +61,15 @@ def normalize_image(Xin, image_network):
         X = tf.reverse(X, axis=[-1])
 
     if mean != 0:
-        mean_ten = tf.constant(mean, dtype=tf.float32)
+        mean_ten = make_tensor(mean)
         X = X - mean_ten
 
     if stdev != 1:
-        stdev_ten = tf.constant(stdev, dtype=tf.float32)
+        stdev_ten = make_tensor(stdev)
         X = X / stdev_ten
 
     if metadata['mean_image'] is not None:
-        mean_image = tf.constant(metadata['mean_image'], dtype=tf.float32)
+        mean_image = make_tensor(metadata['mean_image'])
         X = X - mean_image
 
     return X

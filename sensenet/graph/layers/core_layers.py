@@ -8,14 +8,15 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.graph.layers.utils import is_tf_variable, ACTIVATORS
+from sensenet.graph.layers.utils import make_tensor
 
-def dense(X, params):
+def dense(X, params, is_training):
     afn = params['activation_function']
     layer = {"type": "dense"}
 
     for key in ["weights", "offset"]:
         if not is_tf_variable(params[key]):
-            layer[key] = tf.Variable(params[key], dtype=tf.float32)
+            layer[key] = make_tensor(params[key], is_training)
         else:
             layer[key] = params[key]
 
@@ -32,7 +33,7 @@ def dense(X, params):
 
     return layer, outputs
 
-def activation(X, params):
+def activation(X, params, is_training):
     afn = params['activation_function']
     layer = {"type": "activation", "activation_function": afn}
 
@@ -47,26 +48,29 @@ def batchnorm(X, params, is_training, decay=0.99, eps=1e-3):
         eps = params['epsilon']
     for key in ['gamma', 'beta', 'mean', 'variance']:
         if not is_tf_variable(params[key]):
-            layer[key] = tf.Variable(params[key], dtype=tf.float32)
+            layer[key] = make_tensor(params[key], is_training)
         else:
             layer[key] = params[key]
 
     gamma = layer['gamma']
     beta = layer['beta']
-    pop_mean = layer['mean']
-    pop_var = layer['variance']
+    pmean = layer['mean']
+    pvar = layer['variance']
 
-    def train():
-        m, v = tf.nn.moments(X, list(range(len(X.get_shape()) - 1)))
-        train_mean = tf.assign(pop_mean, pop_mean * decay + m * (1 - decay))
-        train_var = tf.assign(pop_var, pop_var * decay + v * (1 - decay))
-        with tf.control_dependencies([train_mean, train_var]):
-            return tf.nn.batch_normalization(X, m, v, beta, gamma, eps)
+    if is_training is None:
+        outputs = tf.nn.batch_normalization(X, pmean, pvar, beta, gamma, eps)
+    else:
+        def train():
+            m, v = tf.nn.moments(X, list(range(len(X.get_shape()) - 1)))
+            train_mean = tf.assign(pmean, pmean * decay + m * (1 - decay))
+            train_var = tf.assign(pvar, pvar * decay + v * (1 - decay))
+            with tf.control_dependencies([train_mean, train_var]):
+                return tf.nn.batch_normalization(X, m, v, beta, gamma, eps)
 
-    def test():
-        return tf.nn.batch_normalization(X, pop_mean, pop_var, beta, gamma, eps)
+        def test():
+            return tf.nn.batch_normalization(X, pmean, pvar, beta, gamma, eps)
 
-    outputs = tf.cond(is_training, train, test)
+        outputs = tf.cond(is_training, train, test)
 
     return layer, outputs
 
@@ -84,7 +88,7 @@ def dropout(X, params, keep_prob):
 
     return layer, outputs
 
-def flatten(X, params):
+def flatten(X, params, is_training):
     layer = {"type": "flatten"}
 
     shape = X.get_shape().as_list()
@@ -93,19 +97,19 @@ def flatten(X, params):
 
     return layer, outputs
 
-def global_avg_pool_2d(X, params):
+def global_avg_pool_2d(X, params, is_training):
     layer = {"type": "global_average_pool_2d"}
     outputs = tf.reduce_mean(X, axis=[1, 2])
 
     return layer, outputs
 
-def global_max_pool_2d(X, params):
+def global_max_pool_2d(X, params, is_training):
     layer = {"type": "global_max_pool_2d"}
     outputs = tf.reduce_max(X, axis=[1, 2])
 
     return layer, outputs
 
-def max_pool_2d(X, params):
+def max_pool_2d(X, params, is_training):
     pool_size = params['pool_size']
     strides = params['strides']
     padding = params['padding']
@@ -124,7 +128,7 @@ def max_pool_2d(X, params):
 
     return layer, outputs
 
-def avg_pool_2d(X, params):
+def avg_pool_2d(X, params, is_training):
     pool_size = params['pool_size']
     strides = params['strides']
     padding = params['padding']
@@ -143,17 +147,17 @@ def avg_pool_2d(X, params):
 
     return layer, outputs
 
-def padding_2d(X, params):
+def padding_2d(X, params, is_training):
     padding = [[int(p) for p in ps] for ps in params['padding']]
 
     layer = {"type": "padding_2d", "value": 0, "padding": padding}
-    pad_spec = tf.constant([[0, 0]] + padding + [[0, 0]])
+    pad_spec = make_tensor([[0, 0]] + padding + [[0, 0]], ttype=tf.int32)
 
     outputs = tf.pad(X, pad_spec)
 
     return layer, outputs
 
-def upsampling_2d(X, params):
+def upsampling_2d(X, params, is_training):
     size = params['size']
 
     layer = {

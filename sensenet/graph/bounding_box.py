@@ -6,6 +6,7 @@ from sensenet.constants import MAX_BOUNDING_BOXES, MASKS
 from sensenet.graph.image import complete_image_network, graph_input_shape
 from sensenet.graph.image import normalize_image
 from sensenet.graph.construct import make_all_outputs, yolo_output_branches
+from sensenet.graph.layers.utils import make_tensor
 
 def shape(tensor):
     return np.array(tensor.get_shape().as_list(), dtype=np.float32)
@@ -14,7 +15,7 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
     nas = len(anchors)
 
     # Reshape to batch, height, width, nanchors, box_params.
-    at = tf.reshape(tf.constant(anchors, dtype=feats.dtype), [1, 1, 1, nas, 2])
+    at = tf.reshape(make_tensor(anchors, ttype=feats.dtype), [1, 1, 1, nas, 2])
 
     grid_shape = np.array(shape(feats)[1:3], dtype=np.int32) # height, width
     x_shape = grid_shape[1]
@@ -28,8 +29,8 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
 
     feats = tf.reshape(feats, [-1, y_shape, x_shape, nas, num_classes + 5])
 
-    t_grid = tf.constant(grid_shape[::-1], dtype=feats.dtype)
-    t_input = tf.constant(input_shape[::-1], dtype=feats.dtype)
+    t_grid = make_tensor(grid_shape[::-1], ttype=feats.dtype)
+    t_input = make_tensor(input_shape[::-1], ttype=feats.dtype)
 
     # Adjust predictions to each spatial grid point and anchor size.
     box_xy = (tf.sigmoid(feats[..., :2]) + grid) / t_grid
@@ -46,7 +47,7 @@ def correct_boxes(box_xy, box_wh, input_shape):
     box_yx = box_xy[..., ::-1]
     box_hw = box_wh[..., ::-1]
 
-    input_shape = tf.constant(input_shape, dtype=box_yx.dtype)
+    input_shape = make_tensor(input_shape, ttype=box_yx.dtype)
     box_mins = box_yx - (box_hw / 2.)
     box_maxes = box_yx + (box_hw / 2.)
 
@@ -88,7 +89,7 @@ def output_boxes(outputs, anchors, nclasses, score_thresh=0.6, iou_thresh=0.5):
     box_scores = tf.concat(box_scores, 0)
 
     mask = box_scores >= score_thresh
-    max_boxes_tensor = tf.constant(MAX_BOUNDING_BOXES, dtype='int32')
+    max_boxes_tensor = make_tensor(MAX_BOUNDING_BOXES, ttype='int32')
 
     boxes_ = []
     scores_ = []

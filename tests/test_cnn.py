@@ -23,15 +23,12 @@ from sensenet.graph.keras.extract import extract
 VS = 'VarianceScaling'
 RU = 'RandomUniform'
 
-def layer_outputs(data, layer_type, keras_layer, normalizing=False):
+def layer_outputs(data, layer_type, keras_layer):
     tfX = tf.constant(data)
     params = extract(keras_layer)
 
-    if normalizing:
-        trn = tf.constant(False)
-        _, outputs = LAYER_FUNCTIONS[layer_type](tfX, params, trn)
-    else:
-        _, outputs = LAYER_FUNCTIONS[layer_type](tfX, params)
+    trn = tf.constant(False)
+    _, outputs = LAYER_FUNCTIONS[layer_type](tfX, params, trn)
 
     return outputs
 
@@ -109,7 +106,7 @@ def test_batchnorm():
                                          input_shape=(3, 2, 3)))
 
             Xp = model.predict(data)
-            outputs = layer_outputs(data, lType, model.layers[0], True)
+            outputs = layer_outputs(data, lType, model.layers[0])
 
             sess.run(tf.global_variables_initializer())
             tfp = outputs.eval()

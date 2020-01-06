@@ -1,6 +1,8 @@
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
+from sensenet.graph.layers.utils import make_tensor
+
 def create_tree_variables(node_list):
     assert [n['node_id'] for n in node_list] == list(range(len(node_list)))
 
@@ -20,11 +22,11 @@ def create_tree_variables(node_list):
 def build_tree_topology(Xin, node_list):
     variables = create_tree_variables(node_list)
 
-    is_leaf = tf.constant(variables['is_leaf'], dtype=tf.bool)
-    indexes = tf.constant(variables['split_index'], dtype=tf.int32)
-    split_values = tf.constant(variables['split_value'], dtype=tf.float32)
-    next_matrix = tf.constant(variables['next_matrix'], dtype=tf.int32)
-    outputs = tf.constant(variables['outputs'], dtype=tf.float32)
+    is_leaf = make_tensor(variables['is_leaf'], ttype=tf.bool)
+    indexes = make_tensor(variables['split_index'], ttype=tf.int32)
+    split_values = make_tensor(variables['split_value'], ttype=tf.float32)
+    next_matrix = make_tensor(variables['next_matrix'], ttype=tf.int32)
+    outputs = make_tensor(variables['outputs'], ttype=tf.float32)
 
     nrows = tf.shape(Xin)[0]
     nouts = len(variables['outputs'][0])
@@ -43,11 +45,11 @@ def build_tree_topology(Xin, node_list):
         svals = tf.squeeze(tf.gather(split_values, current_nodes))
 
         value_coords = tf.stack([xcoords, sidxs], axis=1)
-        values = tf.gather_nd(Xin, value_coords, name='value_gather')
+        values = tf.gather_nd(Xin, value_coords)
         side = tf.dtypes.cast(values > svals, tf.int32)
         node_coords = tf.stack([tf.squeeze(current_nodes), side], axis=1)
 
-        next_nodes = tf.gather_nd(next_matrix, node_coords, name='node_gather')
+        next_nodes = tf.gather_nd(next_matrix, node_coords)
         next_outputs = tf.gather(outputs, next_nodes)
 
         return tf.reshape(next_nodes, [-1, 1]), tf.reshape(next_outputs, [-1, 3])

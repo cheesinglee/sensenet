@@ -1,6 +1,8 @@
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
+from sensenet.graph.layers.utils import make_tensor
+
 def create_preprocessors(preprocessors):
     locations = []
 
@@ -39,8 +41,8 @@ def create_preprocessors(preprocessors):
     if len(means) > 0:
         num_shape = (None, len(means))
         nX = tf.gather(tf.float32, shape=num_shape, name='numeric_input')
-        nMean = tf.constant(means, dtype=tf.float32)
-        nStd = tf.constant(stdevs, dtype=tf.float32)
+        nMean = make_tensor(means)
+        nStd = make_tensor(stdevs)
 
         variables['numeric_X'] = nX
         variables['numeric_out'] = (nX - nMean) / nStd
@@ -48,7 +50,7 @@ def create_preprocessors(preprocessors):
     if len(zero_values) > 0:
         bin_shape = (None, len(zero_values))
         bX = tf.placeholder(tf.float32, shape=bin_shape, name='binary_input')
-        bLow = tf.constant(zero_values, dtype=tf.float32)
+        bLow = make_tensor(zero_values)
 
         variables['binary_X'] = bX
         variables['binary_out'] = bX != bLow

@@ -8,8 +8,8 @@ import sensenet.importers
 np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
-from sensenet.graph.layers.utils import ACTIVATORS, PATH_KEYS, NORMALIZING_LAYERS
 from sensenet.graph.layers.utils import PREVIOUS_INPUT_LAYERS, is_tf_variable
+from sensenet.graph.layers.utils import ACTIVATORS, PATH_KEYS
 from sensenet.graph.layers.core_layers import CORE_LAYERS
 from sensenet.graph.layers.convolutional_layers import CONVOLUTIONAL_LAYERS
 
@@ -126,14 +126,12 @@ def make_all_outputs(X, is_training, layers_params, keep_prob):
         layer_type = lp['type']
         layer_fn = LAYER_FUNCTIONS[layer_type]
 
-        if layer_type in NORMALIZING_LAYERS:
-            layer, outputs = layer_fn(inputs, lp, is_training)
-        elif layer_type in PREVIOUS_INPUT_LAYERS:
+        if layer_type in PREVIOUS_INPUT_LAYERS:
             layer, outputs = layer_fn(inputs, lp, is_training, all_outputs)
         elif layer_type == 'dropout':
             layer, outputs = layer_fn(inputs, lp, keep_prob)
         else:
-            layer, outputs = layer_fn(inputs, lp)
+            layer, outputs = layer_fn(inputs, lp, is_training)
 
         outlayers.append(layer)
         all_outputs.append(outputs)
