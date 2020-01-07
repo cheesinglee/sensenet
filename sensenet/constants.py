@@ -1,3 +1,8 @@
+# Data and objective types
+NUMERIC = 'numeric'
+CATEGORICAL = 'categorical'
+IMAGE_PATH = 'image'
+
 # Constants for the scaled linear units
 SELU_ALPHA = 1.6732632423543772848170429916717;
 SELU_SCALE = 1.0507009873554804934193349852946;

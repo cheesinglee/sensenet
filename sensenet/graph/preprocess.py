@@ -1,9 +1,10 @@
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
+from sensenet.constants import NUMERIC, CATEGORICAL, IMAGE_PATH
 from sensenet.graph.layers.utils import make_tensor
 
-def create_preprocessors(preprocessors):
+def create_preprocessors(Xin, preprocessors):
     locations = []
 
     num_idxs = []
@@ -18,52 +19,55 @@ def create_preprocessors(preprocessors):
     n_images = 0
 
     for i, proc in enumerate(preprocessors):
-        if proc['type'] == 'numeric':
+        if proc['type'] == NUMERIC:
             if 'mean' in proc:
                 num_idxs.append(i)
-                locations.append(('numeric', len(means)))
+                locations.append((NUMERIC, len(means)))
                 means.append(proc['mean'])
-                stdevs.append(proc['stdev'])
+
+                if proc['stdev'] > 0:
+                    stdevs.append(proc['stdev'])
+                else:
+                    # This should only happen if the feature had a constant
+                    # value in training
+                    stdevs.append(1)
             elif 'one_value' in proc:
                 bin_idxs.append(i)
                 locations.append(('binary', len(zero_values)))
                 zero_values.append(proc['zero_value'])
-        elif proc['type'] == 'categorical':
+        elif proc['type'] == CATEGORICAL:
             cat_idxs.append(i)
-            locations.append(('categorical', len(depths)))
+            locations.append((CATEGORICAL, len(depths)))
             depths.append(len(proc['values']))
-        elif proc['type'] == 'image':
-            locations.append(('image', n_images))
+        elif proc['type'] == IMAGE_PATH:
+            locations.append((IMAGE_PATH, n_images))
             n_images += 1
 
     variables = {}
 
     if len(means) > 0:
         num_shape = (None, len(means))
-        nX = tf.gather(tf.float32, shape=num_shape, name='numeric_input')
+        nX = tf.gather(Xin, num_idxs, axis=-1, name='numeric_input')
         nMean = make_tensor(means)
         nStd = make_tensor(stdevs)
 
-        variables['numeric_X'] = nX
         variables['numeric_out'] = (nX - nMean) / nStd
 
     if len(zero_values) > 0:
         bin_shape = (None, len(zero_values))
-        bX = tf.placeholder(tf.float32, shape=bin_shape, name='binary_input')
+        bX = tf.gather(Xin, bin_idxs, axis=-1, name='binary_input')
         bLow = make_tensor(zero_values)
 
-        variables['binary_X'] = bX
-        variables['binary_out'] = bX != bLow
+        variables['binary_out'] = tf.cast(tf.not_equal(bX, bLow), tf.float32)
 
     if len(depths) > 0:
-        for depth in depths:
+        variables['categoricals'] = []
+
+        for depth, idx in zip(depths, cat_idxs):
             cname = 'categorical_input_i'
-            cX = tf.placeholder(tf.float32, shape=(None,), name=cname)
-            cout = tf.one_hot(cX, depth)
-            variables['categoricals'].append({
-                'input': cX,
-                'output': cout
-            })
+            cX = tf.cast(Xin[:, idx], tf.int32)
+            cout = tf.cast(tf.one_hot(cX, depth), tf.float32)
+            variables['categoricals'].append(cout)
 
     return locations, variables
 
@@ -71,12 +75,12 @@ def concatenate_preprocessed_inputs(locations, variables):
     to_concatenate = []
 
     for vtype, index in locations:
-        if vtype == 'categorical':
-            to_concatenate.append(variables['categoricals'][index]['output'])
-        elif vtype == 'image':
+        if vtype == CATEGORICAL:
+            to_concatenate.append(variables['categoricals'][index])
+        elif vtype == IMAGE_PATH:
             to_concatenate.append(variables['image_out'][:,:,index])
         else:
-            outname = vtype + '_out'
-            to_concatenate.append(variables[outname][:,index])
+            outvar = tf.reshape(variables[vtype + '_out'][:,index], [-1, 1])
+            to_concatenate.append(outvar)
 
-    return tf.concat(to_concatenate, 0, name='preprocessed_inputs')
+    return tf.concat(to_concatenate, -1, name='preprocessed_inputs')
