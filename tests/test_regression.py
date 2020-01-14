@@ -56,6 +56,7 @@ def test_embedding():
 
     for test_info in artifact:
         test_info['output_exposition'] = fake_outex(test_info)
+        inputs = load_points(test_info, test_info['input_data'])['input_X']
 
         variables = initialize_variables(test_info)
         Xin = variables['raw_X']
@@ -63,8 +64,6 @@ def test_embedding():
         pvars = create_preprocessor(test_info, variables)
         processed = pvars['preprocessed_X']
         embedded = pvars['embedded_X']
-
-        inputs = load_points(test_info, test_info['input_data'])['input_X']
 
         with tf.Session() as sess:
             result = sess.run([processed, embedded], feed_dict={Xin: inputs})
