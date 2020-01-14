@@ -3,8 +3,7 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 np = sensenet.importers.import_numpy()
 
-from sensenet.graph.layers.tree import to_node_list, create_tree_variables
-from sensenet.graph.layers.tree import build_tree_topology
+from sensenet.graph.layers.tree import to_node_list, nodes_to_tensor
 
 def test_simple_tree_prediction():
     test_tree = [
@@ -53,7 +52,7 @@ def test_simple_tree_prediction():
 
     with tf.Session() as sess:
         Xin = tf.placeholder(tf.float32, shape=(None, 6), name='input_data')
-        pred_graph = build_tree_topology(Xin, nodes)
+        pred_graph = nodes_to_tensor(Xin, nodes)
 
         sess.run(tf.global_variables_initializer())
         preds = pred_graph.eval({Xin: np.array(test_points)})

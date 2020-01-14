@@ -4,7 +4,10 @@ tf = sensenet.importers.import_tensorflow()
 from sensenet.constants import NUMERIC, CATEGORICAL, IMAGE_PATH
 from sensenet.graph.layers.utils import make_tensor
 
-def create_preprocessors(Xin, preprocessors):
+def create_loaders(model, input_variables):
+    Xin = input_variables['raw_X']
+    preprocessors = model['preprocess']
+
     locations = []
 
     num_idxs = []
@@ -71,7 +74,7 @@ def create_preprocessors(Xin, preprocessors):
 
     return locations, variables
 
-def concatenate_preprocessed_inputs(locations, variables):
+def reorder_inputs(locations, variables):
     to_concatenate = []
 
     for vtype, index in locations:
