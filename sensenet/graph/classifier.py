@@ -5,6 +5,7 @@ from sensenet.constants import NUMERIC, CATEGORICAL, IMAGE_PATH
 from sensenet.accessors import get_output_exposition
 from sensenet.graph.preprocess import create_loaders, reorder_inputs
 from sensenet.graph.construct import make_layers
+from sensenet.graph.layers.utils import make_tensor
 from sensenet.graph.layers.tree import forest_preprocessor
 
 def initialize_variables(model):
@@ -46,7 +47,7 @@ def create_network(network, variables, output_exposition=None):
         mten = make_tensor(outex['mean'])
         stdten = make_tensor(outex['stdev'])
 
-        return (outputs - mten) / stdten
+        return outputs * stdten + mten
     else:
         return outputs
 

@@ -62,19 +62,19 @@ def build_tree_topology(Xin, node_list):
     zero_idxs = tf.zeros([nrows, 1], dtype=tf.int32)
     first_output = tf.ones([nrows, nouts], dtype=tf.float32)
 
-    def loop_cond(current_nodes, _):
-        gathered = tf.gather(is_leaf, current_nodes)
+    def loop_cond(nodes, _):
+        gathered = tf.gather(is_leaf, nodes)
         reduced = tf.reduce_all(gathered)
         return tf.logical_not(reduced)
 
-    def loop_body(current_nodes, _):
-        sidxs = tf.squeeze(tf.gather(indexes, current_nodes))
-        svals = tf.squeeze(tf.gather(split_values, current_nodes))
+    def loop_body(nodes, _):
+        sidxs = tf.reshape(tf.gather(indexes, nodes), [nrows])
+        svals = tf.reshape(tf.gather(split_values, nodes), [nrows])
 
         value_coords = tf.stack([xcoords, sidxs], axis=1)
         values = tf.gather_nd(Xin, value_coords)
         side = tf.dtypes.cast(values > svals, tf.int32)
-        node_coords = tf.stack([tf.squeeze(current_nodes), side], axis=1)
+        node_coords = tf.stack([tf.reshape(nodes, [nrows]), side], axis=1)
 
         next_nodes = tf.gather_nd(next_matrix, node_coords)
         next_outputs = tf.reshape(tf.gather(outputs, next_nodes), [-1, nouts])

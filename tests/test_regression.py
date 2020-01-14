@@ -31,12 +31,15 @@ def single_simple(index):
     with tf.Session() as sess:
         for in_point, true_pred in zip(ins, outs):
             mod_pred = outputs.eval({Xin: np.reshape(in_point, [1, -1])})
-            assert np.allclose(mod_pred[0], true_pred)
+            assert np.allclose(mod_pred[0], true_pred, atol=1e-7)
+
+        mod_preds = outputs.eval({Xin: ins})
+        assert np.allclose(mod_preds, outs, atol=1e-7)
 
 def test_simple_networks():
     rdata = read_regression(SIMPLE_REGRESSIONS)
 
-    for i in [2]: # range(len(rdata)):
+    for i in range(len(rdata)):
         yield single_simple, i
 
 def fake_outex(test_info):
@@ -51,28 +54,32 @@ def fake_outex(test_info):
     else:
         return {'type': NUMERIC, 'mean': 0, 'stdev': 1}
 
+def single_embedding(index):
+    test_info = read_regression(EMBEDDING_REGRESSIONS)[index]
+    test_info['output_exposition'] = fake_outex(test_info)
+    inputs = load_points(test_info, test_info['input_data'])['input_X']
+
+    variables = initialize_variables(test_info)
+    Xin = variables['raw_X']
+
+    pvars = create_preprocessor(test_info, variables)
+    processed = pvars['preprocessed_X']
+    embedded = pvars['embedded_X']
+
+    with tf.Session() as sess:
+        result = sess.run([processed, embedded], feed_dict={Xin: inputs})
+
+        data_with_trees = np.array(test_info['with_trees'])
+        data_without_trees = np.array(test_info['without_trees'])
+
+        assert np.allclose(result[0], data_without_trees)
+        assert np.allclose(result[1], data_with_trees)
+
 def test_embedding():
     artifact = read_regression(EMBEDDING_REGRESSIONS)
 
-    for test_info in artifact:
-        test_info['output_exposition'] = fake_outex(test_info)
-        inputs = load_points(test_info, test_info['input_data'])['input_X']
-
-        variables = initialize_variables(test_info)
-        Xin = variables['raw_X']
-
-        pvars = create_preprocessor(test_info, variables)
-        processed = pvars['preprocessed_X']
-        embedded = pvars['embedded_X']
-
-        with tf.Session() as sess:
-            result = sess.run([processed, embedded], feed_dict={Xin: inputs})
-
-            data_with_trees = np.array(test_info['with_trees'])
-            data_without_trees = np.array(test_info['without_trees'])
-
-            assert np.allclose(result[0], data_without_trees)
-            assert np.allclose(result[1], data_with_trees)
+    for i in range(len(artifact)):
+        yield single_embedding, i
 
 def test_simple_search():
     pass
