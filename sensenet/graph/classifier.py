@@ -4,6 +4,7 @@ tf = sensenet.importers.import_tensorflow()
 from sensenet.constants import NUMERIC, CATEGORICAL, IMAGE_PATH
 from sensenet.accessors import get_output_exposition
 from sensenet.graph.preprocess import create_loaders, reorder_inputs
+from sensenet.graph.image import image_preprocessor
 from sensenet.graph.construct import make_layers
 from sensenet.graph.layers.utils import make_tensor
 from sensenet.graph.layers.tree import forest_preprocessor
@@ -56,7 +57,17 @@ def create_classifier(model):
     variables.update(create_preprocessor(model, variables))
 
     if 'networks' in model:
-        raise ValueError('No network searches yet!')
+        outex = get_output_exposition(model)
+        mod_preds = []
+
+        for network in model['networks']:
+            preds = create_network(network, variables, output_exposition=outex)
+            mod_preds.append(preds)
+
+        summed = tf.add_n(mod_preds)
+        netslen = make_tensor(len(mod_preds))
+
+        variables['network_outputs'] = summed / netslen
     else:
         variables['network_outputs'] = create_network(model, variables)
 

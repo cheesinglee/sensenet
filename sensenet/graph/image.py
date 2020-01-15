@@ -1,3 +1,5 @@
+import os
+
 from PIL import Image
 
 import sensenet.importers
@@ -36,11 +38,11 @@ def read_image(path, input_image_shape):
 
     return img
 
-def read_fn(image_network):
+def read_fn(image_network, image_directory):
     input_shape = image_network['metadata']['input_image_shape']
 
     def reader(image_path):
-        img = read_image(image_path, input_shape)
+        img = read_image(os.path.join(image_directory, image_path), input_shape)
         X = np.array(img, dtype=np.float32)
 
         if len(X.shape) == 2:
@@ -60,6 +62,10 @@ def normalize_image(Xin, image_network):
     if method == 'channelwise_centering':
         X = tf.reverse(X, axis=[-1])
 
+    if metadata['mean_image'] is not None:
+        mean_image = make_tensor(metadata['mean_image'])
+        X = X - mean_image
+
     if mean != 0:
         mean_ten = make_tensor(mean)
         X = X - mean_ten
@@ -67,10 +73,6 @@ def normalize_image(Xin, image_network):
     if stdev != 1:
         stdev_ten = make_tensor(stdev)
         X = X / stdev_ten
-
-    if metadata['mean_image'] is not None:
-        mean_image = make_tensor(metadata['mean_image'])
-        X = X - mean_image
 
     return X
 

@@ -10,31 +10,45 @@ from sensenet.load import load_points
 from sensenet.graph.classifier import initialize_variables
 from sensenet.graph.classifier import create_classifier, create_preprocessor
 
+EMBEDDING_REGRESSION = 'tests/data/embedding.json.gz'
 SIMPLE_REGRESSIONS = 'tests/data/regression.json.gz'
-EMBEDDING_REGRESSIONS = 'tests/data/embedding.json.gz'
+SEARCH_REGRESSION = 'tests/data/search_regression.json.gz'
+IMAGE_REGRESSION = 'tests/data/image_regression.json.gz'
 
 def read_regression(path):
     with gzip.open(path, "rb") as fin:
         return json.loads(fin.read().decode('utf-8'))
 
-def single_simple(index):
-    atest = read_regression(SIMPLE_REGRESSIONS)[index]
-    model, test_points = atest['model'], atest['validation']
+def make_feed(variables, inputs):
+    return {variables[k]: inputs[k] for k in inputs.keys()}
+
+def validate_predictions(test_artifact, image_dir='.'):
+    model, test_points = [test_artifact[k] for k in ['model', 'validation']]
     variables = create_classifier(model)
 
-    Xin = variables['raw_X']
+    lists = [t['input'] for t in test_points]
+    inputs = load_points(model, lists, image_dir)
     outputs = variables['network_outputs']
 
-    ins = load_points(model, [t['input'] for t in test_points])['input_X']
+    ins = load_points(model, [t['input'] for t in test_points], image_dir)
     outs = np.array([t['output'] for t in test_points])
 
     with tf.Session() as sess:
-        for in_point, true_pred in zip(ins, outs):
-            mod_pred = outputs.eval({Xin: np.reshape(in_point, [1, -1])})
+        for i, true_pred in enumerate(outs):
+            pt = {
+                'raw_X': np.reshape(ins['raw_X'][i,:], [1, -1]),
+                'image_X': np.expand_dims(ins['image_X'][i, ...], axis=0)
+            }
+
+            mod_pred = outputs.eval(make_feed(variables, pt))
             assert np.allclose(mod_pred[0], true_pred, atol=1e-7)
 
-        mod_preds = outputs.eval({Xin: ins})
+        mod_preds = outputs.eval(make_feed(variables, inputs))
         assert np.allclose(mod_preds, outs, atol=1e-7)
+
+def single_simple(index):
+    test_artifact = read_regression(SIMPLE_REGRESSIONS)[index]
+    validate_predictions(test_artifact)
 
 def test_simple_networks():
     rdata = read_regression(SIMPLE_REGRESSIONS)
@@ -57,17 +71,14 @@ def fake_outex(test_info):
 def single_embedding(index):
     test_info = read_regression(EMBEDDING_REGRESSIONS)[index]
     test_info['output_exposition'] = fake_outex(test_info)
-    inputs = load_points(test_info, test_info['input_data'])['input_X']
+    inputs = load_points(test_info, test_info['input_data'])
 
     variables = initialize_variables(test_info)
-    Xin = variables['raw_X']
-
     pvars = create_preprocessor(test_info, variables)
-    processed = pvars['preprocessed_X']
-    embedded = pvars['embedded_X']
+    outputs = [pvars['preprocessed_X'], pvars['embedded_X']]
 
     with tf.Session() as sess:
-        result = sess.run([processed, embedded], feed_dict={Xin: inputs})
+        result = sess.run(outputs, feed_dict=make_feed(variables, inputs))
 
         data_with_trees = np.array(test_info['with_trees'])
         data_without_trees = np.array(test_info['without_trees'])
@@ -81,5 +92,10 @@ def test_embedding():
     for i in range(len(artifact)):
         yield single_embedding, i
 
-def test_simple_search():
-    pass
+def test_search():
+    test_artifact = read_regression(SEARCH_REGRESSION)[0]
+    validate_predictions(test_artifact)
+
+def test_images():
+    test_artifact = read_regression(IMAGE_REGRESSION)[0]
+    validate_predictions(test_artifact, image_dir='tests/data/images/digits')

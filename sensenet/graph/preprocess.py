@@ -81,7 +81,8 @@ def reorder_inputs(locations, variables):
         if vtype == CATEGORICAL:
             to_concatenate.append(variables['categoricals'][index])
         elif vtype == IMAGE_PATH:
-            to_concatenate.append(variables['image_out'][:,:,index])
+            an_image = variables['image_out'][:,index,:]
+            to_concatenate.append(an_image)
         else:
             outvar = tf.reshape(variables[vtype + '_out'][:,index], [-1, 1])
             to_concatenate.append(outvar)

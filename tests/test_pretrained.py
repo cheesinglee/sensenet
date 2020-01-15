@@ -33,7 +33,7 @@ def project_and_classify(network_name, accuracy_threshold):
     noutputs = network['metadata']['outputs']
 
     with tf.Session() as sess:
-        proj = image_file_projector(read_fn(network), variables, sess)
+        proj = image_file_projector(read_fn(network, '.'), variables, sess)
 
         X = tf.placeholder(tf.float32, shape=(None, noutputs))
         variables['preprocessed_X'] = X
@@ -79,7 +79,7 @@ def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
     variables = box_detector(network, readout, 80, threshold)
 
     with tf.Session() as sess:
-        detector = box_projector(read_fn(network), variables, sess)
+        detector = box_projector(read_fn(network, '.'), variables, sess)
 
         sess.run(tf.global_variables_initializer())
         boxes, scores, classes = detector(test_path)
