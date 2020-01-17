@@ -13,22 +13,8 @@ def get_index(alist, value):
 
 def load_points(model, points, image_directory):
     preprocs = model['preprocess']
-    nimages = [p['type'] for p in preprocs].count(IMAGE_PATH)
-    img_idx = 0
-
-    inputs = {}
-
-    if nimages:
-        image_network = model['image_network']
-        image_shape = image_network['metadata']['input_image_shape']
-        image_input_shape = [len(points), nimages] + image_shape
-        inputs['image_X'] = np.zeros(image_input_shape, dtype=np.float32)
-
-        reader = read_fn(image_network, image_directory)
-    else:
-        reader = None
-
-    inputs['raw_X'] = np.zeros((len(points), len(preprocs)), dtype=np.float32)
+    rows = len(points)
+    inputs = {'raw_X': np.zeros(rows, len(preprocs)), dtype=np.float32)}
 
     for i, proc in enumerate(preprocs):
         pidx = proc['index']
@@ -36,16 +22,20 @@ def load_points(model, points, image_directory):
 
         if proc['type'] == NUMERIC:
             for j, p in enumerate(points):
-                inputs['raw_X'][j, i] = p[pidx]
+                inputs['raw_X'][j, i] = float(p[pidx])
         elif proc['type'] == CATEGORICAL:
             for j, p in enumerate(points):
-                inputs['raw_X'][j, i] = get_index(values, p[pidx])
+                inputs['raw_X'][j, i] = get_index(values, str(p[pidx]))
         elif proc['type'] == IMAGE_PATH:
-            for j, p in enumerate(points):
-                inputs['image_X'][j, img_idx, ...] = reader(p[pidx])
+            if 'image_paths' not in inputs:
+                inputs['image_paths'] = [list() for _ in range(rows)]
 
-            img_idx += 1
+            for j, p in enumerate(points):
+                inputs['image_paths'][j].append(str(p[pidx]))
         else:
             raise ValueError('Unknown processor type "%s"' % proc['type'])
+
+    if 'image_paths' in inputs:
+        inputs['image_paths'] = np.array(inputs['image_paths'])
 
     return inputs

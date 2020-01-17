@@ -83,11 +83,11 @@ def make_image_row_reader(input_shape, from_file, path_prefix):
     return image_row_reader
 
 def image_tensor(variables, input_shape, from_file, path_prefix):
-    images_in = variables['image_X']
+    images_in = variables['image_paths']
     row_reader = make_image_row_reader(input_shape, from_file, path_prefix)
     output = tf.map_fn(row_reader, images_in, back_prop=False, dtype=tf.uint8)
 
-    return output
+    return tf.cast(output, tf.float32)
 
 def normalize_image(Xin, image_network):
     metadata = image_network['metadata']
@@ -136,19 +136,20 @@ def graph_input_shape(image_network):
     assert len(input_shape) == 3 and input_shape[-1] in [1, 3]
     return [None, input_shape[1], input_shape[0], input_shape[2]]
 
-def image_preprocessor(image_network, images_per_row):
+def image_preprocessor(variables, image_network, from_file, path_prefix):
     network = complete_image_network(image_network)
     metadata = network['metadata']
 
-    in_shape = graph_input_shape(network)
-    all_shape = [None, images_per_row] + in_shape[1:]
+    in_shape = metadata['input_image_shape']
+    graph_shape = graph_input_shape(network)
     n_out = metadata['outputs']
+    images_per_row = variables['image_paths'].shape[1]
 
-    X = tf.placeholder(tf.float32, shape=all_shape, name='image_input')
-    all_images = tf.reshape(X, [-1] + in_shape[1:])
-    Xin = normalize_image(all_images, image_network)
+    all_images = image_tensor(variables, in_shape, from_file, path_prefix)
+    one_per_row = tf.reshape(all_images, [-1] + graph_shape[1:])
+    Xin = normalize_image(one_per_row, image_network)
 
     _, preds = make_layers(Xin, network['layers'], None)
     outputs = tf.reshape(preds, [-1, images_per_row, n_out])
 
-    return {'image_X': X, 'image_preds': preds, 'image_out': outputs}
+    return {'image_preds': preds, 'image_out': outputs}

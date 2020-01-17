@@ -5,43 +5,50 @@ import sensenet.importers
 np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
+from sensenet.constants import CATEGORICAL, IMAGE_PATH
 from sensenet.pretrained import get_pretrained_network, get_pretrained_readout
 from sensenet.pretrained import cnn_resource_path
 from sensenet.graph.construct import make_layers
-from sensenet.graph.classifier import create_dense_layers
-from sensenet.graph.image import image_preprocessor, read_fn
+from sensenet.graph.classifier import initialize_variables, create_network
+from sensenet.graph.image import image_preprocessor
 from sensenet.graph.bounding_box import box_detector, box_projector
 
-def image_file_projector(loader, variables, tf_session):
-    X = variables['image_X']
+def image_file_projector(variables, tf_session):
+    X = variables['image_paths']
     preds = variables['image_preds']
 
     def proj(image_path):
-        img_in = loader(image_path)
-        # Add axes - one row and one image per row
-        batch_params = {X: img_in[np.newaxis, np.newaxis, ...]}
-
-        return tf_session.run(preds, feed_dict=batch_params)
+        return tf_session.run(preds, feed_dict={X: np.array([[image_path]])})
 
     return proj
 
 def project_and_classify(network_name, accuracy_threshold):
+    prefix = 'tests/data/images/'
     network = get_pretrained_network(network_name)
     readout = get_pretrained_readout(network)
-    variables = image_preprocessor(network, 1)
+
+    variables = initialize_variables({'preprocess': [{'type': IMAGE_PATH}]})
+    variables.update(image_preprocessor(variables, network, True, prefix))
 
     noutputs = network['metadata']['outputs']
 
     with tf.Session() as sess:
-        proj = image_file_projector(read_fn(network, '.'), variables, sess)
+        proj = image_file_projector(variables, sess)
 
         X = tf.placeholder(tf.float32, shape=(None, noutputs))
         variables['preprocessed_X'] = X
-        outputs = create_dense_layers(readout, variables, False)
+
+        readout_network = {
+            'output_exposition': {'type': CATEGORICAL, 'values': [None] * 1000},
+            'layers': readout,
+            'trees': None
+        }
+
+        outputs = create_network(readout_network, variables)
 
         sess.run(tf.global_variables_initializer())
-        Xdog = proj('tests/data/dog.jpg').tolist()
-        Xbus = proj('tests/data/bus.jpg').tolist()
+        Xdog = proj('dog.jpg').tolist()
+        Xbus = proj('bus.jpg').tolist()
 
         assert len(Xdog[0]) == len(Xbus[0]), str((len(Xdog[0]), len(Xbus[0])))
         assert noutputs == len(Xdog[0]), str((noutputs, len(Xdog[0])))

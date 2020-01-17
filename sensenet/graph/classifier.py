@@ -10,8 +10,14 @@ from sensenet.graph.layers.utils import make_tensor
 from sensenet.graph.layers.tree import forest_preprocessor
 
 def initialize_variables(model):
-    xlen = len(model['preprocess'])
-    return {'raw_X': tf.placeholder(tf.float32, (None, xlen))}
+    preprocs = model['preprocess']
+    variables = {'raw_X': tf.placeholder(tf.float32, (None, len(preprocs)))}
+    img_count = [p['type'] for p in preprocs].count(IMAGE_PATH)
+
+    if img_count:
+        variables['image_paths'] = tf.placeholder(tf.string, (None, img_count))
+
+    return variables
 
 def create_preprocessor(model, input_variables):
     variables = {}
@@ -37,7 +43,7 @@ def create_preprocessor(model, input_variables):
 def create_network(network, variables, output_exposition=None):
     outex = output_exposition or get_output_exposition(network)
 
-    if network['trees']:
+    if 'trees' in network and network['trees']:
         Xin = variables['embedded_X']
     else:
         Xin = variables['preprocessed_X']
