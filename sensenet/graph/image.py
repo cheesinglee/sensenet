@@ -11,46 +11,83 @@ from sensenet.pretrained import get_pretrained_layers
 from sensenet.graph.construct import make_layers
 from sensenet.graph.layers.utils import make_tensor
 
-def read_image(path, input_image_shape):
-    img = Image.open(path)
+# def read_image(path, input_image_shape):
+#     img = Image.open(path)
 
-    if input_image_shape:
-        in_shape = input_image_shape[:-1]
+#     if input_image_shape:
+#         in_shape = input_image_shape[:-1]
 
-        if input_image_shape[-1] == 1:
-            itype = 'L'
-        elif input_image_shape[-1] == 3:
-            itype = 'RGB'
+#         if input_image_shape[-1] == 1:
+#             itype = 'L'
+#         elif input_image_shape[-1] == 3:
+#             itype = 'RGB'
+#         else:
+#             raise ValueError('%d is not a valid number of channels' %
+#                              input_image_shape[-1])
+#     else:
+#         in_shape = img.size
+#         itype = 'RGB'
+
+#     img = img.convert(itype)
+
+#     if img.size != in_shape:
+#         if img.size[0] * img.size[1] > in_shape[0] * in_shape[1]:
+#             img = img.resize(in_shape, Image.NEAREST)
+#         else:
+#             img = img.resize(in_shape, Image.BICUBIC)
+
+#     return img
+
+# def read_fn(image_network, image_directory):
+#     input_shape = image_network['metadata']['input_image_shape']
+
+#     def reader(image_path):
+#         img = read_image(os.path.join(image_directory, image_path), input_shape)
+#         X = np.array(img, dtype=np.float32)
+
+#         if len(X.shape) == 2:
+#             return np.expand_dims(X, axis=2)
+#         else:
+#             return X
+
+#     return reader
+
+def image_reader_fn(input_shape, from_file, path_prefix):
+    dims = tf.constant(input_shape[:2][::-1], dtype=tf.int32)
+    nchannels = input_shape[-1]
+
+    def read_image(path_or_bytes):
+        if from_file:
+            if path_prefix:
+                path = tf.strings.join([path_prefix, path_or_bytes])
+            else:
+                path = path_or_bytes
+
+            img_bytes = tf.io.read_file(path)
         else:
-            raise ValueError('%d is not a valid number of channels' %
-                             input_image_shape[-1])
-    else:
-        in_shape = img.size
-        itype = 'RGB'
+            img_bytes = path_or_bytes
 
-    img = img.convert(itype)
+        raw_image = tf.io.decode_png(img_bytes, channels=nchannels)
+        resized = tf.compat.v2.image.resize(raw_image, dims, method='nearest')
 
-    if img.size != in_shape:
-        if img.size[0] * img.size[1] > in_shape[0] * in_shape[1]:
-            img = img.resize(in_shape, Image.NEAREST)
-        else:
-            img = img.resize(in_shape, Image.BICUBIC)
+        return resized
 
-    return img
+    return read_image
 
-def read_fn(image_network, image_directory):
-    input_shape = image_network['metadata']['input_image_shape']
+def make_image_row_reader(input_shape, from_file, path_prefix):
+    reader = image_reader_fn(input_shape, from_file, path_prefix)
 
-    def reader(image_path):
-        img = read_image(os.path.join(image_directory, image_path), input_shape)
-        X = np.array(img, dtype=np.float32)
+    def image_row_reader(img_row):
+        return tf.map_fn(reader, img_row, back_prop=False, dtype=tf.uint8)
 
-        if len(X.shape) == 2:
-            return np.expand_dims(X, axis=2)
-        else:
-            return X
+    return image_row_reader
 
-    return reader
+def image_tensor(variables, input_shape, from_file, path_prefix):
+    images_in = variables['image_X']
+    row_reader = make_image_row_reader(input_shape, from_file, path_prefix)
+    output = tf.map_fn(row_reader, images_in, back_prop=False, dtype=tf.uint8)
+
+    return output
 
 def normalize_image(Xin, image_network):
     metadata = image_network['metadata']
