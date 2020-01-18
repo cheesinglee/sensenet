@@ -9,7 +9,7 @@ from sensenet.graph.construct import make_layers
 from sensenet.graph.layers.utils import make_tensor
 from sensenet.graph.layers.tree import forest_preprocessor
 
-def initialize_variables(model):
+def initialize_variables(model, extras):
     preprocs = model['preprocess']
     variables = {'raw_X': tf.placeholder(tf.float32, (None, len(preprocs)))}
     img_count = [p['type'] for p in preprocs].count(IMAGE_PATH)
@@ -17,28 +17,31 @@ def initialize_variables(model):
     if img_count:
         variables['image_paths'] = tf.placeholder(tf.string, (None, img_count))
 
+    if extras:
+        variables.update(extras)
+
     return variables
 
-def create_preprocessor(model, input_variables):
-    variables = {}
+def create_preprocessor(model, variables):
+    output_variables = {}
 
-    locations, load_vars = create_loaders(model, input_variables)
-    variables.update(load_vars)
+    locations, load_vars = create_loaders(model, variables)
+    output_variables.update(load_vars)
 
     if model.get('image_network', None):
         img_net = model['image_network']
         n_images = sum(1 for vtype, _ in locations if vtype == IMAGE_PATH)
         img_vars = image_preprocessor(img_net, n_images)
-        variables.update(img_vars)
+        output_variables.update(img_vars)
 
-    preprocessed = reorder_inputs(locations, variables)
-    variables['preprocessed_X'] = preprocessed
+    preprocessed = reorder_inputs(locations, output_variables)
+    output_variables['preprocessed_X'] = preprocessed
 
     if model['trees']:
-        embedded_X = forest_preprocessor(model, variables)
-        variables['embedded_X'] = embedded_X
+        embedded_X = forest_preprocessor(model, output_variables)
+        output_variables['embedded_X'] = embedded_X
 
-    return variables
+    return output_variables
 
 def create_network(network, variables, output_exposition=None):
     outex = output_exposition or get_output_exposition(network)
@@ -58,8 +61,8 @@ def create_network(network, variables, output_exposition=None):
     else:
         return outputs
 
-def create_classifier(model):
-    variables = initialize_variables(model)
+def create_classifier(model, extras):
+    variables = initialize_variables(model, extras)
     variables.update(create_preprocessor(model, variables))
 
     if 'networks' in model:

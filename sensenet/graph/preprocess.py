@@ -4,8 +4,8 @@ tf = sensenet.importers.import_tensorflow()
 from sensenet.constants import NUMERIC, CATEGORICAL, IMAGE_PATH
 from sensenet.graph.layers.utils import make_tensor
 
-def create_loaders(model, input_variables):
-    Xin = input_variables['raw_X']
+def create_loaders(model, input_vs):
+    Xin = input_vs['raw_X']
     preprocessors = model['preprocess']
 
     locations = []
@@ -46,7 +46,7 @@ def create_loaders(model, input_variables):
             locations.append((IMAGE_PATH, n_images))
             n_images += 1
 
-    variables = {}
+    output_variables = {}
 
     if len(means) > 0:
         num_shape = (None, len(means))
@@ -54,25 +54,25 @@ def create_loaders(model, input_variables):
         nMean = make_tensor(means)
         nStd = make_tensor(stdevs)
 
-        variables['numeric_out'] = (nX - nMean) / nStd
+        output_variables['numeric_out'] = (nX - nMean) / nStd
 
     if len(zero_values) > 0:
         bin_shape = (None, len(zero_values))
         bX = tf.gather(Xin, bin_idxs, axis=-1, name='binary_input')
         bLow = make_tensor(zero_values)
 
-        variables['binary_out'] = tf.cast(tf.not_equal(bX, bLow), tf.float32)
+        output_variables['binary_out'] = tf.cast(tf.not_equal(bX, bLow), tf.float32)
 
     if len(depths) > 0:
-        variables['categoricals'] = []
+        output_variables['categoricals'] = []
 
         for depth, idx in zip(depths, cat_idxs):
             cname = 'categorical_input_i'
             cX = tf.cast(Xin[:, idx], tf.int32)
             cout = tf.cast(tf.one_hot(cX, depth), tf.float32)
-            variables['categoricals'].append(cout)
+            output_variables['categoricals'].append(cout)
 
-    return locations, variables
+    return locations, output_variables
 
 def reorder_inputs(locations, variables):
     to_concatenate = []

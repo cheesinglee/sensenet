@@ -13,22 +13,39 @@ from sensenet.graph.classifier import initialize_variables, create_network
 from sensenet.graph.image import image_preprocessor, complete_image_network
 from sensenet.graph.bounding_box import box_detector, image_projector
 
-TEST_DIR = 'tests/data/images/'
+EXTRA_PARAMS = {'path_prefix': 'tests/data/images/'}
 
-def project_and_classify(network_name, accuracy_threshold):
-    pretrained = get_pretrained_network(network_name)
+def create_processor(name, net_fn, bb_thld=None):
+    pretrained = get_pretrained_network(name)
+    extras = dict(EXTRA_PARAMS)
+
+    if net_fn == box_detector:
+        pretrained = complete_image_network(pretrained)
+        pretrained['layers'] += get_pretrained_readout(pretrained)
+        otype = BOUNDING_BOX
+        nclasses = 80
+        layers = None
+        extras['bounding_box_threshold'] = bb_thld
+    else:
+        otype = CATEGORICAL
+        nclasses = 1000
+        layers = get_pretrained_readout(pretrained)
 
     network = {
-        'output_exposition': {'type': CATEGORICAL, 'values': [None] * 1000},
-        'layers': get_pretrained_readout(pretrained),
+        'output_exposition': {'type': otype, 'values': [None] * nclasses},
+        'layers': layers,
         'trees': None,
         'image_network': pretrained,
         'preprocess': [{'type': IMAGE_PATH}]
     }
 
-    variables = initialize_variables(network)
-    variables.update(image_preprocessor(variables, network, True, TEST_DIR))
+    variables = initialize_variables(network, extras)
+    variables.update(net_fn(network, variables))
 
+    return network, variables
+
+def project_and_classify(network_name, accuracy_threshold):
+    network, variables = create_processor(network_name, image_preprocessor)
     noutputs = network['image_network']['metadata']['outputs']
 
     with tf.Session() as sess:
@@ -72,19 +89,7 @@ def test_mobilenetv2():
     project_and_classify('mobilenetv2', 0.88)
 
 def detect_bounding_boxes(network_name, nboxes, class_list, thresh):
-    pretrained = complete_image_network(get_pretrained_network(network_name))
-    pretrained['layers'] += get_pretrained_readout(pretrained)
-
-    network = {
-        'output_exposition': {'type': BOUNDING_BOX, 'values': [None] * 80},
-        'layers': None,
-        'trees': None,
-        'image_network': pretrained,
-        'preprocess': [{'type': IMAGE_PATH}]
-    }
-
-    variables = initialize_variables(network)
-    variables.update(box_detector(variables, network, True, TEST_DIR, thresh))
+    network, variables = create_processor(network_name, box_detector, thresh)
 
     with tf.Session() as sess:
         detector = image_projector(variables, 'bounding_box_preds', sess)

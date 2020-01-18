@@ -52,16 +52,19 @@ from sensenet.graph.layers.utils import make_tensor
 
 #     return reader
 
-def image_reader_fn(input_shape, from_file, path_prefix):
+def image_reader_fn(variables, input_shape):
     dims = tf.constant(input_shape[:2][::-1], dtype=tf.int32)
+    path_prefix = variables.get('path_prefix', None)
+    input_format = variables.get('image_input_format', 'file')
+
     nchannels = input_shape[-1]
 
     def read_image(path_or_bytes):
-        if from_file:
+        if input_format == 'file':
+            path = path_or_bytes
+
             if path_prefix:
                 path = tf.strings.join([path_prefix, path_or_bytes])
-            else:
-                path = path_or_bytes
 
             img_bytes = tf.io.read_file(path)
         else:
@@ -74,17 +77,17 @@ def image_reader_fn(input_shape, from_file, path_prefix):
 
     return read_image
 
-def make_image_row_reader(input_shape, from_file, path_prefix):
-    reader = image_reader_fn(input_shape, from_file, path_prefix)
+def make_image_row_reader(variables, input_shape):
+    reader = image_reader_fn(variables, input_shape)
 
     def image_row_reader(img_row):
         return tf.map_fn(reader, img_row, back_prop=False, dtype=tf.uint8)
 
     return image_row_reader
 
-def image_tensor(variables, input_shape, from_file, path_prefix):
+def image_tensor(variables, input_shape):
     images_in = variables['image_paths']
-    row_reader = make_image_row_reader(input_shape, from_file, path_prefix)
+    row_reader = make_image_row_reader(variables, input_shape)
     output = tf.map_fn(row_reader, images_in, back_prop=False, dtype=tf.uint8)
 
     return tf.cast(output, tf.float32)
@@ -133,20 +136,20 @@ def graph_input_shape(image_network):
     assert len(input_shape) == 3 and input_shape[-1] in [1, 3]
     return [None, input_shape[1], input_shape[0], input_shape[2]]
 
-def cnn_inputs(variables, image_network, from_file, path_prefix):
+def cnn_inputs(image_network, variables):
     in_shape = image_network['metadata']['input_image_shape']
     graph_shape = graph_input_shape(image_network)
 
-    all_images = image_tensor(variables, in_shape, from_file, path_prefix)
+    all_images = image_tensor(variables, in_shape)
     one_per_row = tf.reshape(all_images, [-1] + graph_shape[1:])
     return normalize_image(one_per_row, image_network)
 
-def image_preprocessor(variables, network, from_file, path_prefix):
+def image_preprocessor(network, variables):
     complete_network = complete_image_network(network['image_network'])
 
     n_out = complete_network['metadata']['outputs']
     images_per_row = variables['image_paths'].shape[1]
-    Xin = cnn_inputs(variables, complete_network, from_file, path_prefix)
+    Xin = cnn_inputs(complete_network, variables)
 
     _, preds = make_layers(Xin, complete_network['layers'], None)
     outputs = tf.reshape(preds, [-1, images_per_row, n_out])

@@ -1,8 +1,8 @@
-import importers
-np = importers.import_numpy()
-tf = importers.import_tensorflow()
+import sensenet.importers
+np = sensenet.importers.import_numpy()
+tf = sensenet.importers.import_tensorflow()
 
-from constants import NUMERIC, CATEGORICAL, IMAGE_PATH
+from sensenet.constants import NUMERIC, CATEGORICAL, IMAGE_PATH
 
 def get_index(alist, value):
     try:
@@ -13,7 +13,7 @@ def get_index(alist, value):
 def load_points(model, points, image_directory):
     preprocs = model['preprocess']
     rows = len(points)
-    inputs = {'raw_X': np.zeros(rows, len(preprocs)), dtype=np.float32)}
+    inputs = {'raw_X': np.zeros((rows, len(preprocs)), dtype=np.float32)}
 
     for i, proc in enumerate(preprocs):
         pidx = proc['index']

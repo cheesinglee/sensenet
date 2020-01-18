@@ -35,12 +35,8 @@ def validate_predictions(test_artifact, image_dir='.'):
 
     with tf.Session() as sess:
         for i, true_pred in enumerate(outs):
-            pt = {
-                'raw_X': np.reshape(ins['raw_X'][i,:], [1, -1]),
-                'image_X': np.expand_dims(ins['image_X'][i, ...], axis=0)
-            }
-
-            mod_pred = outputs.eval(make_feed(variables, pt))
+            point = {k: np.reshape(ins[k][i,:], [1, -1]) for k in ins.keys()}
+            mod_pred = outputs.eval(make_feed(variables, point))
             assert np.allclose(mod_pred[0], true_pred, atol=1e-7)
 
         mod_preds = outputs.eval(make_feed(variables, inputs))

@@ -2,7 +2,7 @@ import sensenet.importers
 np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
-from sensenet.constants import MAX_BOUNDING_BOXES, MASKS
+from sensenet.constants import MAX_BOUNDING_BOXES, MASKS, BOX_IGNORE_THRESH
 from sensenet.accessors import number_of_classes
 from sensenet.graph.image import complete_image_network, cnn_inputs
 from sensenet.graph.construct import make_all_outputs, yolo_output_branches
@@ -117,13 +117,14 @@ def output_boxes(outputs, anchors, nclasses, score_thresh, iou_thresh=0.5):
 
     return boxes_, scores_, classes_
 
-def box_detector(variables, network, from_file, path_prefix, threshold):
+def box_detector(network, variables):
     complete_network = complete_image_network(network['image_network'])
     nclasses = number_of_classes(network)
+    threshold = variables.get('bounding_box_threshold', BOX_IGNORE_THRESH)
     anchors = get_anchors(complete_network)
     layers = complete_network['layers']
 
-    Xin = cnn_inputs(variables, complete_network, from_file, path_prefix)
+    Xin = cnn_inputs(complete_network, variables)
 
     _, outputs = make_all_outputs(Xin, layers[:-1], None, None)
     _, feats = yolo_output_branches(outputs, layers[-1], None)
