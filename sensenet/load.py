@@ -3,7 +3,6 @@ np = importers.import_numpy()
 tf = importers.import_tensorflow()
 
 from constants import NUMERIC, CATEGORICAL, IMAGE_PATH
-# from graph.image import read_fn
 
 def get_index(alist, value):
     try:

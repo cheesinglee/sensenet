@@ -2,6 +2,8 @@
 NUMERIC = 'numeric'
 CATEGORICAL = 'categorical'
 IMAGE_PATH = 'image'
+TRIPLET = 'triplet'
+BOUNDING_BOX = 'bounding_box'
 
 # Constants for the scaled linear units
 SELU_ALPHA = 1.6732632423543772848170429916717;

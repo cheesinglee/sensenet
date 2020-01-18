@@ -3,8 +3,8 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import MAX_BOUNDING_BOXES, MASKS
-from sensenet.graph.image import complete_image_network, graph_input_shape
-from sensenet.graph.image import normalize_image
+from sensenet.accessors import number_of_classes
+from sensenet.graph.image import complete_image_network, cnn_inputs
 from sensenet.graph.construct import make_all_outputs, yolo_output_branches
 from sensenet.graph.layers.utils import make_tensor
 
@@ -74,7 +74,7 @@ def get_anchors(network):
 
     return [[anchors[idx] for idx in mask] for mask in MASKS[base]]
 
-def output_boxes(outputs, anchors, nclasses, score_thresh=0.6, iou_thresh=0.5):
+def output_boxes(outputs, anchors, nclasses, score_thresh, iou_thresh=0.5):
     input_shape = shape(outputs[0])[1:3] * 32
 
     boxes = []
@@ -117,28 +117,31 @@ def output_boxes(outputs, anchors, nclasses, score_thresh=0.6, iou_thresh=0.5):
 
     return boxes_, scores_, classes_
 
-def box_detector(cnn, readout, nclasses, threshold):
-    network = complete_image_network(cnn, readout)
-    anchors = get_anchors(network)
-    layers = network['layers']
+def box_detector(variables, network, from_file, path_prefix, threshold):
+    complete_network = complete_image_network(network['image_network'])
+    nclasses = number_of_classes(network)
+    anchors = get_anchors(complete_network)
+    layers = complete_network['layers']
 
-    input_shape = graph_input_shape(network)
-    X = tf.placeholder(tf.float32, shape=input_shape, name='input_data')
-    Xin = normalize_image(X, network)
+    Xin = cnn_inputs(variables, complete_network, from_file, path_prefix)
 
     _, outputs = make_all_outputs(Xin, layers[:-1], None, None)
     _, feats = yolo_output_branches(outputs, layers[-1], None)
 
-    box_preds = output_boxes(feats, anchors, nclasses, score_thresh=threshold)
+    boxes = output_boxes(feats, anchors, nclasses, threshold)
 
-    return {'bounding_box_X': X, 'bounding_box_preds': box_preds}
+    return {'bounding_box_preds': boxes}
 
-def box_projector(loader, variables, tf_session):
-    X = variables['bounding_box_X']
-    preds = variables['bounding_box_preds']
+def image_projector(variables, out_key, tf_session):
+    X = variables['image_paths']
+    preds = variables[out_key]
 
-    def boxes_for_image(image_path):
-        batch_params = {X: np.expand_dims(loader(image_path), axis=0)}
-        return tf_session.run(preds, feed_dict=batch_params)
+    def projector(image_path_s):
+        if isinstance(image_path_s, str):
+            net_input =  np.array([[image_path_s]])
+        else:
+            net_input = np.array(image_path_s)
 
-    return boxes_for_image
+        return tf_session.run(preds, feed_dict={X: net_input})
+
+    return projector

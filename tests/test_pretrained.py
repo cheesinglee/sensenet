@@ -5,50 +5,43 @@ import sensenet.importers
 np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
-from sensenet.constants import CATEGORICAL, IMAGE_PATH
+from sensenet.constants import CATEGORICAL, IMAGE_PATH, BOUNDING_BOX
 from sensenet.pretrained import get_pretrained_network, get_pretrained_readout
 from sensenet.pretrained import cnn_resource_path
 from sensenet.graph.construct import make_layers
 from sensenet.graph.classifier import initialize_variables, create_network
-from sensenet.graph.image import image_preprocessor
-from sensenet.graph.bounding_box import box_detector, box_projector
+from sensenet.graph.image import image_preprocessor, complete_image_network
+from sensenet.graph.bounding_box import box_detector, image_projector
 
-def image_file_projector(variables, tf_session):
-    X = variables['image_paths']
-    preds = variables['image_preds']
-
-    def proj(image_path):
-        return tf_session.run(preds, feed_dict={X: np.array([[image_path]])})
-
-    return proj
+TEST_DIR = 'tests/data/images/'
 
 def project_and_classify(network_name, accuracy_threshold):
-    prefix = 'tests/data/images/'
-    network = get_pretrained_network(network_name)
-    readout = get_pretrained_readout(network)
+    pretrained = get_pretrained_network(network_name)
 
-    variables = initialize_variables({'preprocess': [{'type': IMAGE_PATH}]})
-    variables.update(image_preprocessor(variables, network, True, prefix))
+    network = {
+        'output_exposition': {'type': CATEGORICAL, 'values': [None] * 1000},
+        'layers': get_pretrained_readout(pretrained),
+        'trees': None,
+        'image_network': pretrained,
+        'preprocess': [{'type': IMAGE_PATH}]
+    }
 
-    noutputs = network['metadata']['outputs']
+    variables = initialize_variables(network)
+    variables.update(image_preprocessor(variables, network, True, TEST_DIR))
+
+    noutputs = network['image_network']['metadata']['outputs']
 
     with tf.Session() as sess:
-        proj = image_file_projector(variables, sess)
+        projector = image_projector(variables, 'image_preds', sess)
 
         X = tf.placeholder(tf.float32, shape=(None, noutputs))
         variables['preprocessed_X'] = X
 
-        readout_network = {
-            'output_exposition': {'type': CATEGORICAL, 'values': [None] * 1000},
-            'layers': readout,
-            'trees': None
-        }
-
-        outputs = create_network(readout_network, variables)
+        outputs = create_network(network, variables)
 
         sess.run(tf.global_variables_initializer())
-        Xdog = proj('dog.jpg').tolist()
-        Xbus = proj('bus.jpg').tolist()
+        Xdog = projector('dog.jpg').tolist()
+        Xbus = projector('bus.jpg').tolist()
 
         assert len(Xdog[0]) == len(Xbus[0]), str((len(Xdog[0]), len(Xbus[0])))
         assert noutputs == len(Xdog[0]), str((noutputs, len(Xdog[0])))
@@ -78,18 +71,24 @@ def test_resnet18():
 def test_mobilenetv2():
     project_and_classify('mobilenetv2', 0.88)
 
-def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
-    test_path = 'tests/data/pizza_people.jpg'
+def detect_bounding_boxes(network_name, nboxes, class_list, thresh):
+    pretrained = complete_image_network(get_pretrained_network(network_name))
+    pretrained['layers'] += get_pretrained_readout(pretrained)
 
-    network = get_pretrained_network(network_name)
-    readout = get_pretrained_readout(network)
-    variables = box_detector(network, readout, 80, threshold)
+    network = {
+        'output_exposition': {'type': BOUNDING_BOX, 'values': [None] * 80},
+        'layers': None,
+        'trees': None,
+        'image_network': pretrained,
+        'preprocess': [{'type': IMAGE_PATH}]
+    }
+
+    variables = initialize_variables(network)
+    variables.update(box_detector(variables, network, True, TEST_DIR, thresh))
 
     with tf.Session() as sess:
-        detector = box_projector(read_fn(network, '.'), variables, sess)
-
-        sess.run(tf.global_variables_initializer())
-        boxes, scores, classes = detector(test_path)
+        detector = image_projector(variables, 'bounding_box_preds', sess)
+        boxes, scores, classes = detector('pizza_people.jpg')
 
     assert len(boxes) == nboxes
     assert sorted(set(classes)) == sorted(class_list), str(set(classes))

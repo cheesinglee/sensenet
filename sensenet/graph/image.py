@@ -113,7 +113,7 @@ def normalize_image(Xin, image_network):
 
     return X
 
-def complete_image_network(network, top_layers=None):
+def complete_image_network(network):
     if network['layers'] is None:
         network['layers'] = get_pretrained_layers(network)
         metadata = network['metadata']
@@ -126,9 +126,6 @@ def complete_image_network(network, top_layers=None):
                 anchors = ANCHORS[metadata['base_image_network']]
                 network['metadata']['anchors'] = anchors
 
-    if top_layers:
-        network['layers'] += top_layers
-
     return network
 
 def graph_input_shape(image_network):
@@ -136,20 +133,22 @@ def graph_input_shape(image_network):
     assert len(input_shape) == 3 and input_shape[-1] in [1, 3]
     return [None, input_shape[1], input_shape[0], input_shape[2]]
 
-def image_preprocessor(variables, image_network, from_file, path_prefix):
-    network = complete_image_network(image_network)
-    metadata = network['metadata']
-
-    in_shape = metadata['input_image_shape']
-    graph_shape = graph_input_shape(network)
-    n_out = metadata['outputs']
-    images_per_row = variables['image_paths'].shape[1]
+def cnn_inputs(variables, image_network, from_file, path_prefix):
+    in_shape = image_network['metadata']['input_image_shape']
+    graph_shape = graph_input_shape(image_network)
 
     all_images = image_tensor(variables, in_shape, from_file, path_prefix)
     one_per_row = tf.reshape(all_images, [-1] + graph_shape[1:])
-    Xin = normalize_image(one_per_row, image_network)
+    return normalize_image(one_per_row, image_network)
 
-    _, preds = make_layers(Xin, network['layers'], None)
+def image_preprocessor(variables, network, from_file, path_prefix):
+    complete_network = complete_image_network(network['image_network'])
+
+    n_out = complete_network['metadata']['outputs']
+    images_per_row = variables['image_paths'].shape[1]
+    Xin = cnn_inputs(variables, complete_network, from_file, path_prefix)
+
+    _, preds = make_layers(Xin, complete_network['layers'], None)
     outputs = tf.reshape(preds, [-1, images_per_row, n_out])
 
     return {'image_preds': preds, 'image_out': outputs}

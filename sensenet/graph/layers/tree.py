@@ -1,7 +1,7 @@
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
-from sensenet.accessors import number_of_outputs
+from sensenet.accessors import number_of_classes
 from sensenet.graph.layers.utils import make_tensor
 
 def to_node_list(tree, noutputs, start_idx):
@@ -112,7 +112,7 @@ def forest_preprocessor(model, variables):
     all_preds = []
 
     Xin = variables['preprocessed_X']
-    noutputs = number_of_outputs(model)
+    noutputs = number_of_classes(model)
 
     for input_range, trees in model['trees']:
         start, end = input_range
