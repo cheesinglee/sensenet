@@ -29,9 +29,7 @@ def create_preprocessor(model, variables):
     output_variables.update(load_vars)
 
     if model.get('image_network', None):
-        img_net = model['image_network']
-        n_images = sum(1 for vtype, _ in locations if vtype == IMAGE_PATH)
-        img_vars = image_preprocessor(img_net, n_images)
+        img_vars = image_preprocessor(model, variables)
         output_variables.update(img_vars)
 
     preprocessed = reorder_inputs(locations, output_variables)

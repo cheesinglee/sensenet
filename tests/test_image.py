@@ -8,6 +8,9 @@ from PIL import Image
 
 from sensenet.graph.image import image_tensor
 
+PATH_PREFIX = 'tests/data/images/digits/'
+EXTRA_PARAMS = {'path_prefix': PATH_PREFIX}
+
 def read_image(path, input_image_shape):
     img = Image.open(path)
 
@@ -71,24 +74,24 @@ def images_equal(tf_out, pil_out):
 
 def test_tf_reading_single():
     shapes = [[32, 32, 3], [64, 48, 3], [28, 28, 1], [64, 48, 1], [16, 24, 3]]
-    prefix = 'tests/data/images/digits/'
+    one_per = dict(EXTRA_PARAMS)
 
     images = ['3/10.png', '8/125.png']
     arow = [images[0], images[1]]
     acol = [[images[0]], [images[1]]]
 
     with tf.Session() as sess:
-        one_per = {'image_X': tf.placeholder(tf.string, (None, 1))}
+        one_per['image_paths'] = tf.placeholder(tf.string, (None, 1))
 
         for shape in shapes:
             in_shape = [shape[i] for i in [1, 0, 2]]
 
-            truth = {p: read_image(prefix + p, shape) for p in images}
+            truth = {p: read_image(PATH_PREFIX + p, shape) for p in images}
             tshape = list(np.array(truth[images[0]]).shape)
             assert tshape[:2] == in_shape[:2]
 
-            one_out = image_tensor(one_per, shape, True, prefix)
-            one_in = one_per['image_X']
+            one_out = image_tensor(one_per, shape)
+            one_in = one_per['image_paths']
             single = one_out.eval({one_in: np.array([[images[0]]])})
             double = one_out.eval({one_in: np.array(acol)})
 
@@ -110,25 +113,25 @@ def test_tf_reading_single():
 
 def test_tf_reading_multi():
     shapes = [[32, 32, 3], [64, 48, 1]]
-    prefix = 'tests/data/images/digits/'
+    two_per = dict(EXTRA_PARAMS)
 
     images = ['3/10.png', '8/125.png']
     arow = [images[0], images[1]]
     acol = [[images[0]], [images[1]]]
 
     with tf.Session() as sess:
-        two_per = {'image_X': tf.placeholder(tf.string, (None, 2))}
+        two_per['image_paths'] = tf.placeholder(tf.string, (None, 2))
 
         for shape in shapes:
-            truth = {p: read_image(prefix + p, shape) for p in images}
+            truth = {p: read_image(PATH_PREFIX + p, shape) for p in images}
             in_shape = [shape[i] for i in [1, 0, 2]]
 
-            truth = {p: read_image(prefix + p, shape) for p in images}
+            truth = {p: read_image(PATH_PREFIX + p, shape) for p in images}
             tshape = list(np.array(truth[images[0]]).shape)
             assert tshape[:2] == in_shape[:2]
 
-            two_out = image_tensor(two_per, shape, True, prefix)
-            two_in = two_per['image_X']
+            two_out = image_tensor(two_per, shape)
+            two_in = two_per['image_paths']
             one_row = two_out.eval({two_in: np.array([arow])})
             triple = two_out.eval({two_in: np.array([arow, arow, arow[::-1]])})
 

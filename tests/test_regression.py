@@ -15,6 +15,8 @@ SIMPLE_REGRESSIONS = 'tests/data/regression.json.gz'
 SEARCH_REGRESSION = 'tests/data/search_regression.json.gz'
 IMAGE_REGRESSION = 'tests/data/image_regression.json.gz'
 
+EXTRA_PARAMS = {'path_prefix': 'tests/data/images/digits/'}
+
 def read_regression(path):
     with gzip.open(path, "rb") as fin:
         return json.loads(fin.read().decode('utf-8'))
@@ -22,15 +24,15 @@ def read_regression(path):
 def make_feed(variables, inputs):
     return {variables[k]: inputs[k] for k in inputs.keys()}
 
-def validate_predictions(test_artifact, image_dir='.'):
+def validate_predictions(test_artifact):
     model, test_points = [test_artifact[k] for k in ['model', 'validation']]
-    variables = create_classifier(model)
+    variables = create_classifier(model, EXTRA_PARAMS)
 
     lists = [t['input'] for t in test_points]
-    inputs = load_points(model, lists, image_dir)
+    inputs = load_points(model, lists)
     outputs = variables['network_outputs']
 
-    ins = load_points(model, [t['input'] for t in test_points], image_dir)
+    ins = load_points(model, [t['input'] for t in test_points])
     outs = np.array([t['output'] for t in test_points])
 
     with tf.Session() as sess:
@@ -65,11 +67,11 @@ def fake_outex(test_info):
         return {'type': NUMERIC, 'mean': 0, 'stdev': 1}
 
 def single_embedding(index):
-    test_info = read_regression(EMBEDDING_REGRESSIONS)[index]
+    test_info = read_regression(EMBEDDING_REGRESSION)[index]
     test_info['output_exposition'] = fake_outex(test_info)
     inputs = load_points(test_info, test_info['input_data'])
 
-    variables = initialize_variables(test_info)
+    variables = initialize_variables(test_info, None)
     pvars = create_preprocessor(test_info, variables)
     outputs = [pvars['preprocessed_X'], pvars['embedded_X']]
 
@@ -83,7 +85,7 @@ def single_embedding(index):
         assert np.allclose(result[1], data_with_trees)
 
 def test_embedding():
-    artifact = read_regression(EMBEDDING_REGRESSIONS)
+    artifact = read_regression(EMBEDDING_REGRESSION)
 
     for i in range(len(artifact)):
         yield single_embedding, i
@@ -94,4 +96,4 @@ def test_search():
 
 def test_images():
     test_artifact = read_regression(IMAGE_REGRESSION)[0]
-    validate_predictions(test_artifact, image_dir='tests/data/images/digits')
+    validate_predictions(test_artifact)

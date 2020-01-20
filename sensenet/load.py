@@ -10,7 +10,7 @@ def get_index(alist, value):
     except ValueError:
         return -1
 
-def load_points(model, points, image_directory):
+def load_points(model, points):
     preprocs = model['preprocess']
     rows = len(points)
     inputs = {'raw_X': np.zeros((rows, len(preprocs)), dtype=np.float32)}
