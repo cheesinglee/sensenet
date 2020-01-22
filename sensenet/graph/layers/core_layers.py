@@ -8,13 +8,13 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.graph.layers.utils import is_tf_variable, ACTIVATORS
-from sensenet.graph.layers.utils import make_tensor
+from sensenet.graph.layers.utils import make_tensor, transpose
 
 def dense(X, params, is_training):
     afn = params['activation_function']
-    layer = {"type": "dense"}
+    layer = {'type': 'dense'}
 
-    for key in ["weights", "offset"]:
+    for key in ['weights', 'offset']:
         if not is_tf_variable(params[key]):
             layer[key] = make_tensor(params[key], is_training)
         else:
@@ -25,8 +25,8 @@ def dense(X, params, is_training):
 
     outputs = tf.matmul(X, w) + offset_var
 
-    if afn in [None, "linear", "identity"]:
-        layer['activation_function'] = "identity"
+    if afn in [None, 'linear', 'identity']:
+        layer['activation_function'] = 'identity'
     else:
         layer['activation_function'] = afn
         outputs = ACTIVATORS[afn](outputs)
@@ -35,14 +35,14 @@ def dense(X, params, is_training):
 
 def activation(X, params, is_training):
     afn = params['activation_function']
-    layer = {"type": "activation", "activation_function": afn}
+    layer = {'type': 'activation', 'activation_function': afn}
 
     outputs = ACTIVATORS[afn](X)
 
     return layer, outputs
 
 def batchnorm(X, params, is_training, decay=0.99, eps=1e-3):
-    layer = {"type": "batch_normalization"}
+    layer = {'type': 'batch_normalization'}
 
     if 'epsilon' in set(params.keys()):
         eps = params['epsilon']
@@ -76,20 +76,20 @@ def batchnorm(X, params, is_training, decay=0.99, eps=1e-3):
 
 def dropout(X, params, keep_prob):
     dtype = params['dropout_type']
-    layer = {"type": "dropout", "dropout_type": dtype}
+    layer = {'type': 'dropout', 'dropout_type': dtype}
 
-    if dtype == "zero":
+    if dtype == 'zero':
         dropout_rate = 1 - keep_prob
         outputs = tf.nn.dropout(X, rate=dropout_rate, seed=42)
-    elif dtype == "alpha":
+    elif dtype == 'alpha':
         outputs = tf.contrib.nn.alpha_dropout(X, keep_prob, seed=42)
     else:
-        raise ValueError("'%s' is not a valid dropout type!" % dtype)
+        raise ValueError('"%s" is not a valid dropout type!' % dtype)
 
     return layer, outputs
 
 def flatten(X, params, is_training):
-    layer = {"type": "flatten"}
+    layer = {'type': 'flatten'}
 
     shape = X.get_shape().as_list()
     dim = np.prod(shape[1:])
@@ -98,13 +98,13 @@ def flatten(X, params, is_training):
     return layer, outputs
 
 def global_avg_pool_2d(X, params, is_training):
-    layer = {"type": "global_average_pool_2d"}
+    layer = {'type': 'global_average_pool_2d'}
     outputs = tf.reduce_mean(X, axis=[1, 2])
 
     return layer, outputs
 
 def global_max_pool_2d(X, params, is_training):
-    layer = {"type": "global_max_pool_2d"}
+    layer = {'type': 'global_max_pool_2d'}
     outputs = tf.reduce_max(X, axis=[1, 2])
 
     return layer, outputs
@@ -115,10 +115,10 @@ def max_pool_2d(X, params, is_training):
     padding = params['padding']
 
     layer = {
-        "type": "max_pool_2d",
-        "pool_size": pool_size,
-        "strides": strides,
-        "padding": padding
+        'type': 'max_pool_2d',
+        'pool_size': pool_size,
+        'strides': strides,
+        'padding': padding
     }
 
     pool_4d = [1] + list(pool_size) + [1]
@@ -134,10 +134,10 @@ def avg_pool_2d(X, params, is_training):
     padding = params['padding']
 
     layer = {
-        "type": "average_pool_2d",
-        "pool_size": pool_size,
-        "strides": strides,
-        "padding": padding
+        'type': 'average_pool_2d',
+        'pool_size': pool_size,
+        'strides': strides,
+        'padding': padding
     }
 
     pool_4d = [1] + list(pool_size) + [1]
@@ -150,7 +150,7 @@ def avg_pool_2d(X, params, is_training):
 def padding_2d(X, params, is_training):
     padding = [[int(p) for p in ps] for ps in params['padding']]
 
-    layer = {"type": "padding_2d", "value": 0, "padding": padding}
+    layer = {'type': 'padding_2d', 'value': 0, 'padding': padding}
     pad_spec = make_tensor([[0, 0]] + padding + [[0, 0]], ttype=tf.int32)
 
     outputs = tf.pad(X, pad_spec)
@@ -161,8 +161,8 @@ def upsampling_2d(X, params, is_training):
     size = params['size']
 
     layer = {
-        "type": "upsampling_2d",
-        "size": size
+        'type': 'upsampling_2d',
+        'size': size
     }
 
     out_size = X.get_shape()[1:3] * np.array(size)
@@ -175,8 +175,8 @@ def concatenate(X, params, is_training, all_outputs):
     inputs = params['inputs']
 
     layer = {
-        "type": "concatenate",
-        "inputs": params['inputs']
+        'type': 'concatenate',
+        'inputs': params['inputs']
     }
 
     Xs = [all_outputs[inp] for inp in inputs]
@@ -184,17 +184,59 @@ def concatenate(X, params, is_training, all_outputs):
 
     return layer, outputs
 
+def legacy(X, params, is_training):
+    layer = {
+        'type': 'legacy',
+        'activation_function': params['activation_function']
+    }
+
+    dense_params = dict(params)
+
+    if 'stdev' in dense_params:
+        # Needs converting from old format
+        dense_params['weights'] = transpose(dense_params['weights'])
+        dense_params['beta'] = dense_params['offset']
+        dense_params['gamma'] = dense_params['scale']
+
+        if params.get('stdev', None) is not None:
+            variance = np.square(np.array(params['stdev'])) - 1e-3
+            dense_params['variance'] = variance.tolist()
+            dense_params['offset'] = np.zeros(np.array(variance.shape)).tolist()
+
+    if params.get('mean', None):
+        dense_params['activation_function'] = None
+
+        # print(dense_params['beta'])
+        # print(dense_params['offset'])
+        act_params = {'activation_function': params['activation_function']}
+
+        dlayer, dout = dense(X, dense_params, is_training)
+        blayer, bout = batchnorm(dout, dense_params, is_training)
+
+        for key in ['gamma', 'beta', 'mean', 'variance']:
+            layer[key] = blayer[key]
+
+        _, outputs = activation(bout, act_params, is_training)
+    else:
+        dlayer, outputs = dense(X, dense_params, is_training)
+
+    for key in ['weights', 'offset']:
+        layer[key] = dlayer[key]
+
+    return layer, outputs
+
 CORE_LAYERS = {
-    "dense": dense,
-    "activation": activation,
-    "batch_normalization": batchnorm,
-    "dropout": dropout,
-    "flatten": flatten,
-    "average_pool_2d": avg_pool_2d,
-    "max_pool_2d": max_pool_2d,
-    "global_average_pool_2d": global_avg_pool_2d,
-    "global_max_pool_2d": global_max_pool_2d,
-    "padding_2d": padding_2d,
-    "upsampling_2d": upsampling_2d,
-    "concatenate": concatenate
+    'legacy': legacy,
+    'dense': dense,
+    'activation': activation,
+    'batch_normalization': batchnorm,
+    'dropout': dropout,
+    'flatten': flatten,
+    'average_pool_2d': avg_pool_2d,
+    'max_pool_2d': max_pool_2d,
+    'global_average_pool_2d': global_avg_pool_2d,
+    'global_max_pool_2d': global_max_pool_2d,
+    'padding_2d': padding_2d,
+    'upsampling_2d': upsampling_2d,
+    'concatenate': concatenate
 }

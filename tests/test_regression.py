@@ -1,5 +1,6 @@
 import json
 import gzip
+import os
 
 import sensenet.importers
 np = sensenet.importers.import_numpy()
@@ -10,15 +11,18 @@ from sensenet.load import load_points
 from sensenet.graph.classifier import initialize_variables
 from sensenet.graph.classifier import create_classifier, create_preprocessor
 
-EMBEDDING_REGRESSION = 'tests/data/embedding.json.gz'
-SIMPLE_REGRESSIONS = 'tests/data/regression.json.gz'
-SEARCH_REGRESSION = 'tests/data/search_regression.json.gz'
-IMAGE_REGRESSION = 'tests/data/image_regression.json.gz'
+TEST_DATA_DIR = 'tests/data/'
 
-EXTRA_PARAMS = {'path_prefix': 'tests/data/images/digits/'}
+EMBEDDING = 'embedding.json.gz'
+SIMPLE = 'regression.json.gz'
+LEGACY = 'legacy_regression.json.gz'
+SEARCH = 'search_regression.json.gz'
+IMAGE = 'image_regression.json.gz'
+
+EXTRA_PARAMS = {'path_prefix': TEST_DATA_DIR + 'images/digits/'}
 
 def read_regression(path):
-    with gzip.open(path, "rb") as fin:
+    with gzip.open(os.path.join(TEST_DATA_DIR, path), "rb") as fin:
         return json.loads(fin.read().decode('utf-8'))
 
 def make_feed(variables, inputs):
@@ -39,20 +43,26 @@ def validate_predictions(test_artifact):
         for i, true_pred in enumerate(outs):
             point = {k: np.reshape(ins[k][i,:], [1, -1]) for k in ins.keys()}
             mod_pred = outputs.eval(make_feed(variables, point))
-            assert np.allclose(mod_pred[0], true_pred, atol=1e-7)
+            assert np.allclose(mod_pred[0], true_pred, atol=1e-7), str((mod_pred[0], true_pred))
 
         mod_preds = outputs.eval(make_feed(variables, inputs))
         assert np.allclose(mod_preds, outs, atol=1e-7)
 
-def single_simple(index):
-    test_artifact = read_regression(SIMPLE_REGRESSIONS)[index]
+def single_artifact(regression_path, index):
+    test_artifact = read_regression(regression_path)[index]
     validate_predictions(test_artifact)
 
 def test_simple_networks():
-    rdata = read_regression(SIMPLE_REGRESSIONS)
+    rdata = read_regression(SIMPLE)
 
     for i in range(len(rdata)):
-        yield single_simple, i
+        yield single_artifact, SIMPLE, i
+
+def test_legacy_networks():
+    rdata = read_regression(LEGACY)
+
+    for i in range(len(rdata)):
+        yield single_artifact, LEGACY, i
 
 def fake_outex(test_info):
     anode = test_info['trees'][0][1][0]
@@ -67,7 +77,7 @@ def fake_outex(test_info):
         return {'type': NUMERIC, 'mean': 0, 'stdev': 1}
 
 def single_embedding(index):
-    test_info = read_regression(EMBEDDING_REGRESSION)[index]
+    test_info = read_regression(EMBEDDING)[index]
     test_info['output_exposition'] = fake_outex(test_info)
     inputs = load_points(test_info, test_info['input_data'])
 
@@ -85,15 +95,15 @@ def single_embedding(index):
         assert np.allclose(result[1], data_with_trees)
 
 def test_embedding():
-    artifact = read_regression(EMBEDDING_REGRESSION)
+    artifact = read_regression(EMBEDDING)
 
     for i in range(len(artifact)):
         yield single_embedding, i
 
 def test_search():
-    test_artifact = read_regression(SEARCH_REGRESSION)[0]
+    test_artifact = read_regression(SEARCH)[0]
     validate_predictions(test_artifact)
 
 def test_images():
-    test_artifact = read_regression(IMAGE_REGRESSION)[0]
+    test_artifact = read_regression(IMAGE)[0]
     validate_predictions(test_artifact)

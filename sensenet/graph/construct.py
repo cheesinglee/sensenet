@@ -13,6 +13,9 @@ from sensenet.graph.layers.utils import ACTIVATORS, PATH_KEYS
 from sensenet.graph.layers.core_layers import CORE_LAYERS
 from sensenet.graph.layers.convolutional_layers import CONVOLUTIONAL_LAYERS
 
+def legacy_block(X, params, is_training):
+    pass
+
 def block_layer(X, params, is_training, paths, type_str):
     layer = {'type': type_str}
     outpaths = []
@@ -121,13 +124,24 @@ def make_all_outputs(X, layers_params, is_training, keep_prob):
     all_outputs = []
 
     inputs = outputs = X
+    use_next = True
 
-    for lp in layers_params:
-        layer_type = lp['type']
+    for i, lp in enumerate(layers_params):
+        layer_type = lp.get('type', 'legacy')
         layer_fn = LAYER_FUNCTIONS[layer_type]
 
         if layer_type in PREVIOUS_INPUT_LAYERS:
             layer, outputs = layer_fn(inputs, lp, is_training, all_outputs)
+        elif layer_type == 'legacy':
+            if use_next:
+                if lp.get('residuals', False):
+                    params = [lp, layers_params[i + 1]]
+                    layer, outputs = legacy_block(inputs, params, is_training)
+                    use_next = False
+                else:
+                    layer, outputs = layer_fn(inputs, lp, is_training)
+            else:
+                use_next = True
         elif layer_type == 'dropout':
             layer, outputs = layer_fn(inputs, lp, keep_prob)
         else:

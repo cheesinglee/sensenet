@@ -42,3 +42,7 @@ def make_tensor(value, is_training=False, ttype=tf.float32):
     else:
         assert is_tf_variable(is_training)
         return tf.Variable(value, dtype=ttype)
+
+def transpose(amatrix):
+    arr = np.array(amatrix)
+    return np.transpose(arr).tolist()
