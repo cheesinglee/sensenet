@@ -17,6 +17,7 @@ EMBEDDING = 'embedding.json.gz'
 SIMPLE = 'regression.json.gz'
 LEGACY = 'legacy_regression.json.gz'
 SEARCH = 'search_regression.json.gz'
+LEGACY_SEARCH = 'legacy_search_regression.json.gz'
 IMAGE = 'image_regression.json.gz'
 
 EXTRA_PARAMS = {'path_prefix': TEST_DATA_DIR + 'images/digits/'}
@@ -30,10 +31,12 @@ def make_feed(variables, inputs):
 
 def validate_predictions(test_artifact):
     model, test_points = [test_artifact[k] for k in ['model', 'validation']]
-    variables = create_classifier(model, EXTRA_PARAMS)
 
-    lists = [t['input'] for t in test_points]
-    inputs = load_points(model, lists)
+    # Make sure we have a reasonable set of test points
+    assert len(test_points) > 4
+    assert not any([t == test_points[0] for t in test_points[1:]])
+
+    variables = create_classifier(model, EXTRA_PARAMS)
     outputs = variables['network_outputs']
 
     ins = load_points(model, [t['input'] for t in test_points])
@@ -47,7 +50,7 @@ def validate_predictions(test_artifact):
 
             assert np.allclose(mod_pred[0], true_pred, atol=1e-7), outstr
 
-        mod_preds = outputs.eval(make_feed(variables, inputs))
+        mod_preds = outputs.eval(make_feed(variables, ins))
         assert np.allclose(mod_preds, outs, atol=1e-7)
 
 def single_artifact(regression_path, index):
@@ -104,6 +107,10 @@ def test_embedding():
 
 def test_search():
     test_artifact = read_regression(SEARCH)[0]
+    validate_predictions(test_artifact)
+
+def test_legacy_search():
+    test_artifact = read_regression(LEGACY_SEARCH)
     validate_predictions(test_artifact)
 
 def test_images():

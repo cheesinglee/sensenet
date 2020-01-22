@@ -41,6 +41,8 @@ def convert_legacy(X, params, is_training):
                 ncols += to_add
 
         Xin = tf.concat(to_concat, -1)
+    else:
+        Xin = X
 
     added = Xin + l2out
 
