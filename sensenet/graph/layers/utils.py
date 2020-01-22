@@ -18,7 +18,8 @@ ACTIVATORS = {
     'selu': tf.nn.selu,
     'leaky_relu': lambda x: tf.nn.leaky_relu(x, alpha=LEAKY_RELU_ALPHA),
     'identity': tf.identity,
-    'linear': tf.identity
+    'linear': tf.identity,
+    None: tf.identity
 }
 
 # These are keys that map to arrays of layers

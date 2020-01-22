@@ -206,17 +206,17 @@ def legacy(X, params, is_training):
     if params.get('mean', None):
         dense_params['activation_function'] = None
 
-        # print(dense_params['beta'])
-        # print(dense_params['offset'])
-        act_params = {'activation_function': params['activation_function']}
-
         dlayer, dout = dense(X, dense_params, is_training)
         blayer, bout = batchnorm(dout, dense_params, is_training)
 
         for key in ['gamma', 'beta', 'mean', 'variance']:
             layer[key] = blayer[key]
 
-        _, outputs = activation(bout, act_params, is_training)
+        if 'activation_function' in params:
+            afn = params['activation_function']
+            outputs = ACTIVATORS[afn](bout)
+        else:
+            outputs = bout
     else:
         dlayer, outputs = dense(X, dense_params, is_training)
 

@@ -43,7 +43,9 @@ def validate_predictions(test_artifact):
         for i, true_pred in enumerate(outs):
             point = {k: np.reshape(ins[k][i,:], [1, -1]) for k in ins.keys()}
             mod_pred = outputs.eval(make_feed(variables, point))
-            assert np.allclose(mod_pred[0], true_pred, atol=1e-7), str((mod_pred[0], true_pred))
+            outstr = '\nPred: %s\nExpt: %s' % (str(mod_pred[0]), str(true_pred))
+
+            assert np.allclose(mod_pred[0], true_pred, atol=1e-7), outstr
 
         mod_preds = outputs.eval(make_feed(variables, inputs))
         assert np.allclose(mod_preds, outs, atol=1e-7)

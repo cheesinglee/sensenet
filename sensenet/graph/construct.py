@@ -5,16 +5,55 @@ parameters from the layers to export the model.
 """
 
 import sensenet.importers
-np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.graph.layers.utils import PREVIOUS_INPUT_LAYERS, is_tf_variable
-from sensenet.graph.layers.utils import ACTIVATORS, PATH_KEYS
+from sensenet.graph.layers.utils import PATH_KEYS, ACTIVATORS
 from sensenet.graph.layers.core_layers import CORE_LAYERS
 from sensenet.graph.layers.convolutional_layers import CONVOLUTIONAL_LAYERS
 
-def legacy_block(X, params, is_training):
-    pass
+def convert_legacy(X, params, is_training):
+    # Needs converting from old format
+    layer = {
+        'type': 'legacy_block',
+        'activation_function': params[1]['activation_function']
+    }
+
+    l1, l1out = CORE_LAYERS['legacy'](X, params[0], is_training)
+
+    l2_params = dict(params[1])
+    l2_params['activation_function'] = None
+    l2, l2out = CORE_LAYERS['legacy'](l1out, l2_params, is_training)
+
+    if X.shape[1] > l2out.shape[1]:
+        Xin = X[:,:l2out.shape[1]]
+    elif X.shape[1] < l2out.shape[1]:
+        to_concat = []
+        ncols = 0
+
+        while ncols < l2out.shape[1]:
+            if ncols + X.shape[1] < l2out.shape[1]:
+                to_concat.append(X)
+                ncols += X.shape[1]
+            else:
+                to_add = l2out.shape[1] - ncols
+                to_concat.append(X[:,:to_add])
+                ncols += to_add
+
+        Xin = tf.concat(to_concat, -1)
+
+    added = Xin + l2out
+
+    if 'activation_function' in params[1]:
+        afn = params[1]['activation_function']
+        outputs = ACTIVATORS[afn](added)
+    else:
+        outputs = added
+
+    layer['dense_path'] = [l1, l2]
+    layer['identity_path'] = []
+
+    return layer, outputs
 
 def block_layer(X, params, is_training, paths, type_str):
     layer = {'type': type_str}
@@ -127,30 +166,36 @@ def make_all_outputs(X, layers_params, is_training, keep_prob):
     use_next = True
 
     for i, lp in enumerate(layers_params):
-        layer_type = lp.get('type', 'legacy')
-        layer_fn = LAYER_FUNCTIONS[layer_type]
+        if use_next:
+            layer_type = lp.get('type', 'legacy')
+            layer_fn = LAYER_FUNCTIONS[layer_type]
 
-        if layer_type in PREVIOUS_INPUT_LAYERS:
-            layer, outputs = layer_fn(inputs, lp, is_training, all_outputs)
-        elif layer_type == 'legacy':
-            if use_next:
-                if lp.get('residuals', False):
+            if i < len(layers_params) - 1:
+                residuals = layers_params[i + 1].get('residuals', False)
+            else:
+                residuals = False
+
+            if layer_type in PREVIOUS_INPUT_LAYERS:
+                layer, outputs = layer_fn(inputs, lp, is_training, all_outputs)
+            elif layer_type == 'legacy':
+                if residuals:
                     params = [lp, layers_params[i + 1]]
-                    layer, outputs = legacy_block(inputs, params, is_training)
+                    layer, outputs = convert_legacy(inputs, params, is_training)
                     use_next = False
                 else:
                     layer, outputs = layer_fn(inputs, lp, is_training)
+
+            elif layer_type == 'dropout':
+                layer, outputs = layer_fn(inputs, lp, keep_prob)
             else:
-                use_next = True
-        elif layer_type == 'dropout':
-            layer, outputs = layer_fn(inputs, lp, keep_prob)
+                layer, outputs = layer_fn(inputs, lp, is_training)
+
+            outlayers.append(layer)
+            all_outputs.append(outputs)
+
+            inputs = outputs
         else:
-            layer, outputs = layer_fn(inputs, lp, is_training)
-
-        outlayers.append(layer)
-        all_outputs.append(outputs)
-
-        inputs = outputs
+            use_next = True
 
     return outlayers, all_outputs
 
