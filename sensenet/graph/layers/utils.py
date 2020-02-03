@@ -5,7 +5,7 @@ np = sensenet.importers.import_numpy()
 from sensenet.constants import LEAKY_RELU_ALPHA
 
 TF_VAR_TYPE = type(tf.Variable(0))
-TF_PLACEHOLDER_TYPE = type(tf.placeholder(tf.float32))
+# TF_PLACEHOLDER_TYPE = type(tf.placeholder(tf.float32))
 
 ACTIVATORS = {
     'tanh': tf.tanh,
@@ -35,7 +35,8 @@ PATH_KEYS = ['convolution_path',
 PREVIOUS_INPUT_LAYERS = ['concatenate', 'yolo_output_branches']
 
 def is_tf_variable(var):
-    return type(var) in [TF_VAR_TYPE, TF_PLACEHOLDER_TYPE]
+    # return type(var) in [TF_VAR_TYPE, TF_PLACEHOLDER_TYPE]
+    return type(var) == TF_VAR_TYPE
 
 def make_tensor(value, is_training=False, ttype=tf.float32):
     if is_training is None or is_training is False:
@@ -43,6 +44,16 @@ def make_tensor(value, is_training=False, ttype=tf.float32):
     else:
         assert is_tf_variable(is_training)
         return tf.Variable(value, dtype=ttype)
+
+def variable(value, is_training, datatype=tf.float32):
+    return tf.Variable(initial_value=value,
+                       trainable=is_training,
+                       dtype=datatype)
+
+def constant(value, datatype=tf.float32):
+    return tf.Variable(initial_value=value,
+                       trainable=False,
+                       dtype=datatype)
 
 def transpose(amatrix):
     arr = np.array(amatrix)

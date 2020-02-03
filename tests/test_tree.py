@@ -3,7 +3,8 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 np = sensenet.importers.import_numpy()
 
-from sensenet.graph.layers.tree import to_node_list, nodes_to_tensor
+from sensenet.graph.layers.utils import constant
+from sensenet.graph.layers.tree import to_node_list, DecisionTree
 
 def test_simple_tree_prediction():
     test_tree = [
@@ -50,11 +51,9 @@ def test_simple_tree_prediction():
 
     assert [n['node_id'] for n in nodes] == list(range(len(nodes)))
 
-    with tf.Session() as sess:
-        Xin = tf.placeholder(tf.float32, shape=(None, 6), name='input_data')
-        pred_graph = nodes_to_tensor(Xin, nodes)
+    tree = DecisionTree(nodes)
+    preds1 = tree(constant(test_points))
+    preds2 = tree(constant(test_points))
 
-        sess.run(tf.global_variables_initializer())
-        preds = pred_graph.eval({Xin: np.array(test_points)})
-
-    assert np.array_equal(preds, results)
+    assert np.array_equal(preds1, results), str((preds1, results))
+    assert np.array_equal(preds2, results)

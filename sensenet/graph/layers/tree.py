@@ -1,8 +1,10 @@
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
+from tensorflow.keras import layers
+
 from sensenet.accessors import number_of_classes
-from sensenet.graph.layers.utils import make_tensor
+from sensenet.graph.layers.utils import constant
 
 def to_node_list(tree, noutputs, start_idx):
     this_node = {'node_id': start_idx}
@@ -45,84 +47,100 @@ def create_tree_tensors(node_list):
 
     return tree_tens
 
-def build_tree_topology(Xin, node_list):
-    assert len(node_list) > 1
-    tensors = create_tree_tensors(node_list)
+class DecisionNode(layers.Layer):
+    def __init__(self, node_list):
+        super(DecisionNode, self).__init__()
 
-    is_leaf = make_tensor(tensors['is_leaf'], ttype=tf.bool)
-    indexes = make_tensor(tensors['split_index'], ttype=tf.int32)
-    split_values = make_tensor(tensors['split_value'], ttype=tf.float32)
-    next_matrix = make_tensor(tensors['next_matrix'], ttype=tf.int32)
-    outputs = make_tensor(tensors['outputs'], ttype=tf.float32)
+        assert len(node_list) == 1
+        self._outputs = node_list[0]['outputs']
 
-    nrows = tf.shape(Xin)[0]
-    nouts = len(tensors['outputs'][0])
+    def build(self, input_shape):
+        self._output_tensor = tf.reshape(constant(self._outputs), [1, -1])
 
-    xcoords = tf.range(nrows, dtype=tf.int32)
-    zero_idxs = tf.zeros([nrows, 1], dtype=tf.int32)
-    first_output = tf.ones([nrows, nouts], dtype=tf.float32)
+    def call(self, inputs):
+        return tf.tile(self.output_tensor, [inputs.shape[0], 1])
 
-    def loop_cond(nodes, _):
-        gathered = tf.gather(is_leaf, nodes)
-        reduced = tf.reduce_all(gathered)
-        return tf.logical_not(reduced)
+class DecisionTree(layers.Layer):
+    def __init__(self, node_list):
+        super(DecisionTree, self).__init__()
 
-    def loop_body(nodes, _):
-        sidxs = tf.reshape(tf.gather(indexes, nodes), [nrows])
-        svals = tf.reshape(tf.gather(split_values, nodes), [nrows])
+        assert len(node_list) > 1
+        self._tensors = create_tree_tensors(node_list)
 
-        value_coords = tf.stack([xcoords, sidxs], axis=1)
-        values = tf.gather_nd(Xin, value_coords)
-        side = tf.dtypes.cast(values > svals, tf.int32)
-        node_coords = tf.stack([tf.reshape(nodes, [nrows]), side], axis=1)
+    def build(self, input_shape):
+        self._is_leaf = constant(self._tensors['is_leaf'], tf.bool)
+        self._indexes = constant(self._tensors['split_index'], tf.int32)
+        self._split_values = constant(self._tensors['split_value'], tf.float32)
+        self._next_matrix = constant(self._tensors['next_matrix'], tf.int32)
+        self._outputs = constant(self._tensors['outputs'], tf.float32)
 
-        next_nodes = tf.gather_nd(next_matrix, node_coords)
-        next_outputs = tf.reshape(tf.gather(outputs, next_nodes), [-1, nouts])
+        self._nouts = len(self._tensors['outputs'][0])
 
-        return tf.reshape(next_nodes, [-1, 1]), next_outputs
+    def call(self, inputs):
+        nrows = inputs.shape[0]
 
-    _, preds = tf.while_loop(loop_cond, loop_body, [zero_idxs, first_output])
+        xcoords = tf.range(nrows, dtype=tf.int32)
+        zero_idxs = tf.zeros([nrows, 1], dtype=tf.int32)
+        first_output = tf.ones([nrows, self._nouts], dtype=tf.float32)
 
-    return preds
+        def loop_cond(nodes, _):
+            gathered = tf.gather(self._is_leaf, nodes)
+            reduced = tf.reduce_all(gathered)
+            return tf.logical_not(reduced)
 
-def nodes_to_tensor(Xin, node_list):
-    if len(node_list) > 1:
-        return build_tree_topology(Xin, node_list)
-    else:
-        nrows = tf.shape(Xin)[0]
-        outten = tf.reshape(make_tensor(node_list[0]['outputs']), [1, -1])
+        def loop_body(nodes, _):
+            sidxs = tf.reshape(tf.gather(self._indexes, nodes), [nrows])
+            svals = tf.reshape(tf.gather(self._split_values, nodes), [nrows])
 
-        return tf.tile(outten, [nrows, 1])
+            value_coords = tf.stack([xcoords, sidxs], axis=1)
+            values = tf.gather_nd(inputs, value_coords)
+            side = tf.dtypes.cast(values > svals, tf.int32)
+            node_coords = tf.stack([tf.reshape(nodes, [nrows]), side], axis=1)
 
-def to_forest(Xin, node_lists, normalize):
-    all_preds = []
+            next_nodes = tf.gather_nd(self._next_matrix, node_coords)
+            next_outputs = tf.gather(self._outputs, next_nodes)
 
-    for nlist in node_lists:
-        all_preds.append(nodes_to_tensor(Xin, nlist))
+            return (tf.reshape(next_nodes, [-1, 1]),
+                    tf.reshape(next_outputs, [-1, self._nouts]))
 
-    summed = tf.add_n(all_preds)
-    aplen = make_tensor(len(all_preds))
+        _, preds = tf.while_loop(loop_cond, loop_body, [zero_idxs, first_output])
 
-    if normalize == 'mean':
-        return summed / aplen
-    else:
-        raise ValueError('Normalizer "%s" unknown' % normalize)
+        return preds
 
-def forest_preprocessor(model, variables):
-    all_preds = []
+class DecisionForest(layers.Layer):
+    def __init__(self, node_lists):
+        super(DecisionForest, self).__init__()
 
-    Xin = variables['preprocessed_X']
-    noutputs = number_of_classes(model)
+        self._trees = []
 
-    for input_range, trees in model['trees']:
-        start, end = input_range
-        fXin = Xin[:,start:end]
-        node_lists = [to_node_list(t, noutputs, 0) for t in trees]
-        aggregated = to_forest(fXin, node_lists, 'mean')
+        for node_list in node_lists:
+            if len(node_list) > 1:
+                self._trees.append(DecisionTree(node_list))
+            else:
+                self._trees.append(DecisionNode(node_list))
 
-        all_preds.append(aggregated)
+    def call(inputs):
+        all_preds = [tree(inputs) for tree in self._trees]
+        summed = tf.add_n(all_preds)
 
-    tree_X = tf.concat(all_preds, -1)
-    embedded_X = tf.concat([tree_X, Xin], -1)
+        return summed / len(all_preds)
 
-    return embedded_X
+class ForestPreprocessor(layers.Layer):
+    def __init__(self, model):
+        super(ForestPreprocessor, self).__init__()
+        noutputs = number_of_classes(model)
+
+        self._forests = []
+
+        for input_range, trees in model['trees']:
+            node_lists = [to_node_list(t, noutputs, 0) for t in trees]
+            self._forests.append([input_range, DecisionForest(node_lists)])
+
+    def call(inputs):
+        all_preds = []
+
+        for input_range, forest in self._forests:
+            start, end = input_range
+            all_preds.append(forest(inputs[:,start:end]))
+
+        return tf.concat([inputs] + all_preds)
