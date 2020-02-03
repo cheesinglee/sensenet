@@ -3,6 +3,8 @@ import gzip
 import json
 import requests
 
+from sensenet.constants import ANCHORS
+
 USER_HOME = os.path.expanduser('~')
 CACHE_DIRECTORY = os.path.join(USER_HOME, '.bigml_mimir')
 CNN_METADATA_FILE = 'cnn_metadata.json'
@@ -58,3 +60,18 @@ def get_pretrained_layers(network):
 
 def get_pretrained_readout(network):
     return get_resource(network, True)
+
+def complete_image_network(network):
+    if network['layers'] is None:
+        network['layers'] = get_pretrained_layers(network)
+        metadata = network['metadata']
+
+        assert metadata.get('mean_image', None) is None
+        network['metadata']['mean_image'] = None
+
+        if 'output_indices' in metadata:
+            if metadata.get('anchors', None) is None:
+                anchors = ANCHORS[metadata['base_image_network']]
+                network['metadata']['anchors'] = anchors
+
+    return network

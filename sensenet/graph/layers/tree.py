@@ -1,8 +1,6 @@
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
-from tensorflow.keras import layers
-
 from sensenet.accessors import number_of_classes
 from sensenet.graph.layers.utils import constant
 
@@ -47,7 +45,7 @@ def create_tree_tensors(node_list):
 
     return tree_tens
 
-class DecisionNode(layers.Layer):
+class DecisionNode(tf.keras.layers.Layer):
     def __init__(self, node_list):
         super(DecisionNode, self).__init__()
 
@@ -58,9 +56,9 @@ class DecisionNode(layers.Layer):
         self._output_tensor = tf.reshape(constant(self._outputs), [1, -1])
 
     def call(self, inputs):
-        return tf.tile(self.output_tensor, [inputs.shape[0], 1])
+        return tf.tile(self._output_tensor, [inputs.shape[0], 1])
 
-class DecisionTree(layers.Layer):
+class DecisionTree(tf.keras.layers.Layer):
     def __init__(self, node_list):
         super(DecisionTree, self).__init__()
 
@@ -107,7 +105,7 @@ class DecisionTree(layers.Layer):
 
         return preds
 
-class DecisionForest(layers.Layer):
+class DecisionForest(tf.keras.layers.Layer):
     def __init__(self, node_lists):
         super(DecisionForest, self).__init__()
 
@@ -119,28 +117,30 @@ class DecisionForest(layers.Layer):
             else:
                 self._trees.append(DecisionNode(node_list))
 
-    def call(inputs):
+    def call(self, inputs):
         all_preds = [tree(inputs) for tree in self._trees]
         summed = tf.add_n(all_preds)
 
         return summed / len(all_preds)
 
-class ForestPreprocessor(layers.Layer):
+class ForestPreprocessor(tf.keras.layers.Layer):
     def __init__(self, model):
         super(ForestPreprocessor, self).__init__()
         noutputs = number_of_classes(model)
 
         self._forests = []
+        self._ranges = []
 
         for input_range, trees in model['trees']:
             node_lists = [to_node_list(t, noutputs, 0) for t in trees]
             self._forests.append([input_range, DecisionForest(node_lists)])
 
-    def call(inputs):
+    def call(self, inputs):
         all_preds = []
 
         for input_range, forest in self._forests:
             start, end = input_range
-            all_preds.append(forest(inputs[:,start:end]))
+            tree_inputs = inputs[:,start:end]
+            all_preds.append(forest(tree_inputs))
 
-        return tf.concat([inputs] + all_preds)
+        return tf.concat(all_preds + [inputs], -1)

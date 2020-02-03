@@ -74,8 +74,8 @@ def create_classifier(model, extras):
         summed = tf.add_n(mod_preds)
         netslen = make_tensor(len(mod_preds))
 
-        variables['network_outputs'] = summed / netslen
+        variables['predictions'] = summed / netslen
     else:
-        variables['network_outputs'] = create_network(model, variables)
+        variables['predictions'] = create_network(model, variables)
 
     return variables
