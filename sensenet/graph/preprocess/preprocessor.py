@@ -9,12 +9,12 @@ from sensenet.graph.preprocess.numeric import BinaryPreprocessor
 from sensenet.graph.preprocess.image import ImagePreprocessor
 
 class Preprocessor(tf.keras.layers.Layer):
-    def __init__(self, model):
+    def __init__(self, model, extras):
         super(Preprocessor, self).__init__()
         self._preprocessors = []
 
         if model.get('image_network', None) is not None:
-            img_proc = ImageProcessor(model['image_network'])
+            img_proc = ImagePreprocessor(model['image_network'], extras)
 
         for pp in model['preprocess']:
             ptype = pp['type']
@@ -33,10 +33,18 @@ class Preprocessor(tf.keras.layers.Layer):
 
 
     def call(self, inputs):
+        img_idx = 0
         processed = []
 
+        image_inputs = inputs['image']
+        numeric_inputs = inputs['numeric']
+
         for i, pp in enumerate(self._preprocessors):
-            processed.append(pp(inputs[:,i]))
+            if isinstance(pp, ImagePreprocessor):
+                processed.append(pp(image_inputs[:,img_idx]))
+                img_idx += 1
+            else:
+                processed.append(pp(numeric_inputs[:,i]))
 
         if len(processed) > 1:
             return tf.concat(processed, -1)

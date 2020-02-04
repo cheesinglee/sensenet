@@ -56,7 +56,7 @@ class DecisionNode(tf.keras.layers.Layer):
         self._output_tensor = tf.reshape(constant(self._outputs), [1, -1])
 
     def call(self, inputs):
-        return tf.tile(self._output_tensor, [inputs.shape[0], 1])
+        return tf.tile(self._output_tensor, [tf.shape(inputs)[0], 1])
 
 class DecisionTree(tf.keras.layers.Layer):
     def __init__(self, node_list):
@@ -75,7 +75,7 @@ class DecisionTree(tf.keras.layers.Layer):
         self._nouts = len(self._tensors['outputs'][0])
 
     def call(self, inputs):
-        nrows = inputs.shape[0]
+        nrows = tf.shape(inputs)[0]
 
         xcoords = tf.range(nrows, dtype=tf.int32)
         zero_idxs = tf.zeros([nrows, 1], dtype=tf.int32)

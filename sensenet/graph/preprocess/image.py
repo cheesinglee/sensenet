@@ -1,10 +1,12 @@
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
+from sensenet.constants import IMAGE_STANDARDIZERS
 from sensenet.pretrained import complete_image_network
+from sensenet.graph.layers.utils import constant
 
 class ImagePreprocessor(tf.keras.layers.Layer):
-    def __init__(self, image_network, variables):
+    def __init__(self, image_network, extras):
         super(ImagePreprocessor, self).__init__()
 
         network = complete_image_network(image_network)
@@ -19,14 +21,14 @@ class ImagePreprocessor(tf.keras.layers.Layer):
 
         self._reverse = method == 'channelwise_standardizing'
         self._mean = constant(mean) if mean != 0 else None
-        self._stdev = constant(stdev) if std != 1 else None
+        self._stdev = constant(std) if std != 1 else None
         self._mean_image = constant(mimg) if mimg is not None else None
 
         self._image_layers = make_layers(network['layers'])
 
-        if variables:
-            self._path_prefix = variables.get('path_prefix', None)
-            self._input_format = variables.get('input_image_format', 'file')
+        if extras:
+            self._path_prefix = extras.get('path_prefix', None)
+            self._input_format = extras.get('input_image_format', 'file')
 
     def read_fn(self):
         dims = tf.constant(self._input_shape[:2][::-1], tf.int32)

@@ -10,6 +10,7 @@ from sensenet.constants import NUMERIC, CATEGORICAL
 from sensenet.load import load_points
 from sensenet.graph.preprocess.preprocessor import Preprocessor
 from sensenet.graph.layers.tree import ForestPreprocessor
+from sensenet.graph.classifier import deepnet_model
 
 TEST_DATA_DIR = 'tests/data/'
 
@@ -30,28 +31,26 @@ def read_regression(path):
 #     return {variables[k]: inputs[k] for k in inputs.keys()}
 
 def validate_predictions(test_artifact):
-    model, test_points = [test_artifact[k] for k in ['model', 'validation']]
+    test_model, test_points = [test_artifact[k] for k in ['model', 'validation']]
 
-    # # Make sure we have a reasonable set of test points
-    # assert len(test_points) > 4
-    # assert not any([t == test_points[0] for t in test_points[1:]])
+    # Make sure we have a reasonable set of test points
+    assert len(test_points) > 4
+    assert not any([t == test_points[0] for t in test_points[1:]])
 
-    # variables = create_classifier(model, EXTRA_PARAMS)
-    # outputs = variables['predictions']
+    ins = load_points(test_model, [t['input'] for t in test_points])
+    outs = np.array([t['output'] for t in test_points])
 
-    # ins = load_points(model, [t['input'] for t in test_points])
-    # outs = np.array([t['output'] for t in test_points])
+    model = deepnet_model(test_model, EXTRA_PARAMS)
 
-    # with tf.Session() as sess:
-    #     for i, true_pred in enumerate(outs):
-    #         point = {k: np.reshape(ins[k][i,:], [1, -1]) for k in ins.keys()}
-    #         mod_pred = outputs.eval(make_feed(variables, point))
-    #         outstr = '\nPred: %s\nExpt: %s' % (str(mod_pred[0]), str(true_pred))
+    for i, true_pred in enumerate(outs):
+        point = {k: np.reshape(ins[k][i,:], [1, -1]) for k in ins.keys()}
+        mod_pred = model.predict(point)
+        outstr = '\nPred: %s\nExpt: %s' % (str(mod_pred[0]), str(true_pred))
 
-    #         assert np.allclose(mod_pred[0], true_pred, atol=1e-7), outstr
+        assert np.allclose(mod_pred[0], true_pred, atol=1e-7), outstr
 
-    #     mod_preds = outputs.eval(make_feed(variables, ins))
-    #     assert np.allclose(mod_preds, outs, atol=1e-7)
+    mod_preds = model.predict(ins)
+    assert np.allclose(mod_preds, outs, atol=1e-7)
 
 def single_artifact(regression_path, index):
     test_artifact = read_regression(regression_path)[index]
@@ -85,11 +84,11 @@ def single_embedding(index):
     test_info = read_regression(EMBEDDING)[index]
     test_info['output_exposition'] = fake_outex(test_info)
 
-    preprocessor = Preprocessor(test_info)
+    preprocessor = Preprocessor(test_info, EXTRA_PARAMS)
     forest = ForestPreprocessor(test_info)
 
     inputs = load_points(test_info, test_info['input_data'])
-    proc_result = preprocessor(inputs['raw_X'])
+    proc_result = preprocessor(inputs)
     tree_result = forest(proc_result)
 
     data_with_trees = np.array(test_info['with_trees'])
