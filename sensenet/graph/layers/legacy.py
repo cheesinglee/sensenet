@@ -1,6 +1,7 @@
 import sensenet.importers
 np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
+kl = sensenet.importers.import_keras_layers()
 
 from sensenet.graph.layers.utils import transpose
 from sensenet.graph.layers.core_layers import dense, batchnorm, activation_function
@@ -10,7 +11,7 @@ def with_popped_activation(params):
     params_copy = dict(params)
     params_copy.pop('activation_function', None)
 
-    return afn, params_copy
+    return params_copy, afn
 
 class LegacyBlock(tf.keras.layers.Layer):
     def __init__(self, params):
@@ -20,7 +21,7 @@ class LegacyBlock(tf.keras.layers.Layer):
 
         self._dense = dense(dense_params)
         self._bnorm = batchnorm(params)
-        self._activator = Activation(afn)
+        self._activator = kl.Activation(afn)
 
     def call(self, inputs):
         propigated = self._dense(inputs)
@@ -41,7 +42,7 @@ def legacy(params):
         dense_params['variance'] = variance.tolist()
         dense_params['offset'] = np.zeros(np.array(variance.shape)).tolist()
 
-        return LegacyBlock(params)
+        return LegacyBlock(dense_params)
     else:
         return dense(dense_params)
 
@@ -54,9 +55,9 @@ class LegacyResidualBlock(tf.keras.layers.Layer):
 
         self._first = legacy(first_params)
         self._second = legacy(second_params)
-        self._activator = Activation(afn)
+        self._activator = kl.Activation(afn)
 
-    def equalize_input_width(inputs, outputs):
+    def equalize_input_width(self, inputs, outputs):
         if inputs.shape[1] == outputs.shape[1]:
             return inputs
         elif inputs.shape[1] > outputs.shape[1]:
