@@ -3,8 +3,8 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 kl = sensenet.importers.import_keras_layers()
 
-from sensenet.graph.layers.utils import transpose
-from sensenet.graph.layers.core_layers import dense, batchnorm, activation_function
+from sensenet.graph.layers.utils import transpose, activation_function
+from sensenet.graph.layers.core_layers import dense, batchnorm
 
 def with_popped_activation(params):
     afn = activation_function(params)

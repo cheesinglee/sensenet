@@ -9,50 +9,20 @@ kl = sensenet.importers.import_keras_layers()
 
 # from sensenet.graph.layers.utils import is_tf_variable, ACTIVATORS
 # from sensenet.graph.layers.utils import make_tensor, transpose
-
-WEIGHT_PARAMETERS = [
-    'weights',
-    'offset',
-    'gamma',
-    'beta',
-    'mean',
-    'variance'
-]
-
-def activation_function(params):
-    afn = params.get('activation_function', None)
-
-    if afn in [None, 'linear', 'identity']:
-        return 'linear'
-    elif afn == 'swish':
-        return lambda x: x * tf.sigmoid(x)
-    else:
-        return params['activation_function']
-
-def initializer_map(params):
-    imap = {}
-
-    for k in WEIGHT_PARAMETERS:
-        if k in params and params[k] is not None:
-            imap[k] = tf.constant_initializer(params[k])
-
-    imap['activation_function'] = activation_function(params)
-
-    return imap
+from sensenet.graph.layers.utils import initializer_map, activation_function
 
 def dense(params):
     imap = initializer_map(params)
     units = len(params['weights'][0])
 
     return kl.Dense(units,
-                    activation=imap['activation_function'],
+                    activation=activation_function(params),
                     use_bias=True,
                     kernel_initializer=imap['weights'],
                     bias_initializer=imap['offset'])
 
 def activation(params):
-    imap = initializer_map(params)
-    return kl.Activation(imap['activation_function'])
+    return kl.Activation(activation_function(params))
 
 def batchnorm(params):
     imap = initializer_map(params)
@@ -72,23 +42,23 @@ def dropout(params):
     else:
         raise ValueError('"%s" is not a valid dropout type!' % dtype)
 
-def flatten(X, params, is_training):
+def flatten(params):
     return kl.Flatten()
 
-def global_avg_pool_2d(X, params, is_training):
+def global_avg_pool_2d(params):
     return kl.GlobalAveragePooling2D()
 
-def global_max_pool_2d(X, params, is_training):
+def global_max_pool_2d(params):
     return kl.GlobalMaxPool2D()
 
-def max_pool_2d(X, params, is_training):
+def max_pool_2d(params):
     pool_size = params['pool_size']
     strides = params['strides']
     padding = params['padding']
 
     return kl.MaxPool2D(pool_size, strides, padding)
 
-def avg_pool_2d(X, params, is_training):
+def avg_pool_2d(params):
     pool_size = params['pool_size']
     strides = params['strides']
     padding = params['padding']

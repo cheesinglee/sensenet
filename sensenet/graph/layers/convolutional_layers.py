@@ -1,86 +1,51 @@
 import sensenet.importers
+np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
+kl = sensenet.importers.import_keras_layers()
 
-from sensenet.graph.layers.utils import is_tf_variable, make_tensor
+from sensenet.graph.layers.utils import initializer_map, activation_function
 
-def bias_add(conv, bias):
-    if bias is not None:
-        return tf.nn.bias_add(conv, bias)
-    else:
-        return conv
+def conv_2d(params):
+    kernel = np.array(params['kernel'])
+    imap = initializer_map(params)
 
-def conv_2d(X, params, is_training):
-    strides = params['strides']
-    padding = params['padding']
+    return kl.Conv2D(filters=kernel.shape[3],
+                     kernel_size=kernel.shape[:2],
+                     strides=params['strides'],
+                     padding=params['padding'],
+                     use_bias='bias' in params,
+                     activation=activation_function(params),
+                     kernel_initializer=imap['kernel'],
+                     bias_initializer=imap['bias'])
 
-    layer = {"type": "convolution_2d", "padding": padding, "strides": strides}
 
-    for key in ["kernel", "bias"]:
-        if not is_tf_variable(params[key]) and params[key] is not None:
-            layer[key] = make_tensor(params[key], is_training)
-        else:
-            layer[key] = params[key]
+def separable_conv_2d(params):
+    kernel = np.array(params['kernel'])
+    imap = initializer_map(params)
 
-    w = layer['kernel']
-    stride_4d = [1] + list(strides) + [1]
+    return kl.SeparableConv2D(filters=kernel.shape[3],
+                              kernel_size=kernel.shape[:2],
+                              strides=params['strides'],
+                              padding=params['padding'],
+                              use_bias='bias' in params,
+                              depth_multiplier=params['depth_multiplier'],
+                              activation=activation_function(params),
+                              depthwise_initializer=imap['depth_kernel'],
+                              pointwise_initializer=imap['point_kernel'],
+                              bias_initializer=imap['bias'])
 
-    conv = tf.nn.conv2d(X, w, stride_4d, padding=padding.upper())
-    outputs = bias_add(conv, layer['bias'])
+def depthwise_conv_2d(params):
+    kernel = np.array(params['kernel'])
+    imap = initializer_map(params)
 
-    return layer, outputs
-
-def separable_conv_2d(X, params, is_training):
-    strides = params['strides']
-    padding = params['padding']
-    depth_multiplier = params["depth_multiplier"]
-
-    layer = {
-        "type": "separable_convolution_2d",
-        "padding": padding,
-        "strides": strides,
-        "depth_multiplier": depth_multiplier
-    }
-
-    for key in ["depth_kernel", "point_kernel", "bias"]:
-        if not is_tf_variable(params[key]) and params[key] is not None:
-            layer[key] = make_tensor(params[key], is_training)
-        else:
-            layer[key] = params[key]
-
-    dw = layer['depth_kernel']
-    pw = layer['point_kernel']
-    stride_4d = [1] + list(strides) + [1]
-
-    conv = tf.nn.separable_conv2d(X, dw, pw, stride_4d, padding=padding.upper())
-    outputs = bias_add(conv, layer['bias'])
-
-    return layer, outputs
-
-def depthwise_conv_2d(X, params, is_training):
-    strides = params['strides']
-    padding = params['padding']
-    depth_multiplier = params["depth_multiplier"]
-
-    layer = {
-        "type": "depthwise_convolution_2d",
-        "padding": padding,
-        "strides": strides,
-        "depth_multiplier": depth_multiplier
-    }
-
-    for key in ["kernel", "bias"]:
-        if not is_tf_variable(params[key]) and params[key] is not None:
-            layer[key] = make_tensor(params[key], is_training)
-        else:
-            layer[key] = params[key]
-
-    w = layer['kernel']
-    stride_4d = [1] + list(strides) + [1]
-
-    conv = tf.nn.depthwise_conv2d(X, w, stride_4d, padding=padding.upper())
-    outputs = bias_add(conv, layer['bias'])
-
-    return layer, outputs
+    return kl.DepthwiseConv2D(kernel_size=kernel.shape[:2],
+                              strides=params['strides'],
+                              padding=params['padding'],
+                              use_bias='bias' in params,
+                              depth_multiplier=params['depth_multiplier'],
+                              activation=activation_function(params),
+                              kernel_initializer=imap['kernel'],
+                              bias_initializer=imap['bias'])
 
 CONVOLUTIONAL_LAYERS = {
     "convolution_2d": conv_2d,

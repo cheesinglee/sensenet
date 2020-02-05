@@ -1,6 +1,7 @@
+from sensenet.graph.layers.utils import make_sequence
 from sensenet.graph.layers.legacy import make_legacy_sequence
 from sensenet.graph.layers.tree import ForestPreprocessor
-from sensenet.graph.layers.blocks import SIMPLE_LAYERS, BLOCKS, make_sequence
+from sensenet.graph.layers.blocks import SIMPLE_LAYERS, BLOCKS
 
 LAYER_FUNCTIONS = {}
 LAYER_FUNCTIONS.update(SIMPLE_LAYERS)

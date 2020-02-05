@@ -8,30 +8,14 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 kl = sensenet.importers.import_keras_layers()
 
-from sensenet.graph.layers.core_layers import activation_function, CORE_LAYERS
+from sensenet.graph.layers.utils import activation_function
+from sensenet.graph.layers.utils import make_sequence, propagate
+from sensenet.graph.layers.core_layers import CORE_LAYERS
 from sensenet.graph.layers.convolutional_layers import CONVOLUTIONAL_LAYERS
 
 SIMPLE_LAYERS = {}
 SIMPLE_LAYERS.update(CORE_LAYERS)
 SIMPLE_LAYERS.update(CONVOLUTIONAL_LAYERS)
-
-def make_sequence(layers_params, creation_functions):
-    layers = []
-
-    for params in layers_params:
-        layer_fn = creation_functions[params['type']]
-        layers.append(layer_fn(params))
-
-    return layers
-
-def propagate(layers, inputs):
-    next_inputs = inputs
-
-    if len(layers) > 0:
-        for layer in layers:
-            next_inputs = layer(next_inputs)
-
-    return next_inputs
 
 class BlockLayer(tf.keras.layers.Layer):
     def __init__(self, params, path_names, block_type):
@@ -82,11 +66,11 @@ def mobilev2_block(params):
 
     return BlockLayer(params, paths, type_str)
 
-def xception_block(params):
-    paths = ['separable_convolution_path', 'single_convolution_path']
-    type_str = 'xception_block'
+# def xception_block(params):
+#     paths = ['separable_convolution_path', 'single_convolution_path']
+#     type_str = 'xception_block'
 
-    return BlockLayer(params, paths, type_str)
+#     return BlockLayer(params, paths, type_str)
 
 def yolo_output_branches(params):
     net = params['base_image_network']

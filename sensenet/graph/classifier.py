@@ -4,8 +4,8 @@ tf = sensenet.importers.import_tensorflow()
 from sensenet.constants import IMAGE_PATH, NUMERIC
 from sensenet.accessors import get_output_exposition
 from sensenet.graph.preprocess.preprocessor import Preprocessor
+from sensenet.graph.layers.utils import propagate
 from sensenet.graph.layers.tree import ForestPreprocessor
-from sensenet.graph.layers.blocks import propagate
 from sensenet.graph.layers.construct import layer_sequence, tree_preprocessor
 
 def instantiate_inputs(model):
