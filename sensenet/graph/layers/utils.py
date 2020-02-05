@@ -1,11 +1,13 @@
 import sensenet.importers
-tf = sensenet.importers.import_tensorflow()
 np = sensenet.importers.import_numpy()
+tf = sensenet.importers.import_tensorflow()
+kl = sensenet.importers.import_keras_layers()
 
 from sensenet.constants import LEAKY_RELU_ALPHA
 
 # TF_VAR_TYPE = type(tf.Variable(0))
 # TF_PLACEHOLDER_TYPE = type(tf.placeholder(tf.float32))
+
 
 ACTIVATORS = {
     'relu6': tf.nn.relu6,
@@ -27,6 +29,13 @@ WEIGHT_PARAMETERS = [
     'point_kernel'
 ]
 
+def log_summary(x, msg):
+    def summary_function(x):
+        summary = [tf.shape(x), tf.reduce_mean(x), tf.math.reduce_std(x)]
+        return tf.compat.v1.Print(x, summary, summarize=1024, message=msg)
+
+    return kl.Lambda(summary_function)(x)
+
 def activation_function(params):
     afn = params.get('activation_function', None)
 
@@ -41,8 +50,10 @@ def initializer_map(params):
     imap = {}
 
     for k in WEIGHT_PARAMETERS:
-        if k in params and params[k] is not None:
-            imap[k] = tf.constant_initializer(params[k])
+        wts = params.get(k, None)
+
+        if wts is not None:
+            imap[k] = tf.constant_initializer(np.array(wts, dtype=np.float32))
         else:
             imap[k] = 'zeros'
 
@@ -51,9 +62,10 @@ def initializer_map(params):
 def make_sequence(layers_params, creation_functions):
     layers = []
 
-    for params in layers_params:
-        layer_fn = creation_functions[params['type']]
-        layers.append(layer_fn(params))
+    if layers_params:
+        for params in layers_params:
+            layer_fn = creation_functions[params['type']]
+            layers.append(layer_fn(params))
 
     return layers
 
@@ -63,6 +75,8 @@ def propagate(layers, inputs):
     if len(layers) > 0:
         for layer in layers:
             next_inputs = layer(next_inputs)
+            # lname = type(layer).__name__.split('.')[-1] + ': '
+            # next_inputs = log_summary(next_inputs, lname)
 
     return next_inputs
 

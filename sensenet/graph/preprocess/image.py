@@ -32,9 +32,15 @@ class ImageReader(tf.keras.layers.Layer):
             else:
                 img_bytes = path_or_bytes
 
-            raw_image = tf.io.decode_png(img_bytes, channels=nchannels)
+            # Note that, spectacularly weirdly, this method will also
+            # work for pngs and gifs.  Even wierder, We can't use
+            # decode_image here because the tensor that comes out
+            # doesn't have a shape!
+            raw_image = tf.io.decode_jpeg(img_bytes,
+                                          dct_method='INTEGER_ACCURATE',
+                                          channels=nchannels)
 
-            return tf.compat.v2.image.resize(raw_image, dims, method='nearest')
+            return tf.image.resize(raw_image, dims, method='nearest')
 
         self._read = read_image
 

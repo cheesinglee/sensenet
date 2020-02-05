@@ -16,6 +16,7 @@ def dense(params):
     units = len(params['weights'][0])
 
     return kl.Dense(units,
+                    dtype=tf.float32,
                     activation=activation_function(params),
                     use_bias=True,
                     kernel_initializer=imap['weights'],
@@ -26,7 +27,8 @@ def activation(params):
 
 def batchnorm(params):
     imap = initializer_map(params)
-    return kl.BatchNormalization(beta_initializer=imap['beta'],
+    return kl.BatchNormalization(dtype=tf.float32,
+                                 beta_initializer=imap['beta'],
                                  gamma_initializer=imap['gamma'],
                                  moving_mean_initializer=imap['mean'],
                                  moving_variance_initializer=imap['variance'])
