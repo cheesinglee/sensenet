@@ -7,10 +7,10 @@ from sensenet.graph.layers.utils import constant, propagate
 from sensenet.graph.layers.construct import layer_sequence
 
 class ImageReader(tf.keras.layers.Layer):
-    def __init__(self, image_network, extras):
+    def __init__(self, network, extras):
         super(ImageReader, self).__init__()
 
-        ishape = image_network['metadata']['input_image_shape']
+        ishape = network['metadata']['input_image_shape']
         self._input_shape = [None, ishape[1], ishape[0], ishape[2]]
 
         if extras:
@@ -48,13 +48,11 @@ class ImageReader(tf.keras.layers.Layer):
         images = tf.map_fn(self._read, inputs, back_prop=False, dtype=tf.uint8)
         return tf.cast(images, tf.float32)
 
-class ImagePreprocessor(tf.keras.layers.Layer):
-    def __init__(self, image_network, extras):
-        super(ImagePreprocessor, self).__init__()
+class ImageLoader(tf.keras.layers.Layer):
+    def __init__(self, network):
+        super(ImageLoader, self).__init__()
 
-        network = complete_image_network(image_network)
         metadata = network['metadata']
-
         method = metadata['loading_method']
         mimg = metadata['mean_image']
         mean, std = IMAGE_STANDARDIZERS[method]
@@ -64,11 +62,8 @@ class ImagePreprocessor(tf.keras.layers.Layer):
         self._stdev = constant(std) if std != 1 else None
         self._mean_image = constant(mimg) if mimg is not None else None
 
-        self._reader = ImageReader(network, extras)
-        self._image_layers = layer_sequence(network)
-
     def call(self, inputs):
-        images = self._reader(inputs)
+        images = inputs
 
         if self._reverse:
             images = tf.reverse(images, axis=[-1])
@@ -81,5 +76,21 @@ class ImagePreprocessor(tf.keras.layers.Layer):
 
         if self._stdev is not None:
             images = images / self._stdev
+
+        return images
+
+class ImagePreprocessor(tf.keras.layers.Layer):
+    def __init__(self, image_network, extras):
+        super(ImagePreprocessor, self).__init__()
+
+        network = complete_image_network(image_network)
+
+        self._reader = ImageReader(network, extras)
+        self._loader = ImageLoader(network)
+        self._image_layers = layer_sequence(network)
+
+    def call(self, inputs):
+        raw_images = self._reader(inputs)
+        images = self._loader(raw_images)
 
         return propagate(self._image_layers, images)

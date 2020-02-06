@@ -1,21 +1,24 @@
 import sensenet.importers
 np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
+kl = sensenet.importers.import_keras_layers()
 
-from sensenet.constants import MAX_BOUNDING_BOXES, MASKS, BOX_IGNORE_THRESH
-from sensenet.accessors import number_of_classes
-from sensenet.graph.image import complete_image_network, cnn_inputs
-from sensenet.graph.construct import make_all_outputs, yolo_output_branches
-from sensenet.graph.layers.utils import make_tensor
+from sensenet.constants import MAX_BOUNDING_BOXES, MASKS
+from sensenet.constants import IGNORE_THRESHOLD, IOU_THRESHOLD
+from sensenet.accessors import number_of_classes, get_anchors
+from sensenet.pretrained import complete_image_network
+from sensenet.graph.preprocess.image import ImageReader, ImageLoader
+from sensenet.graph.layers.construct import LAYER_FUNCTIONS
+from sensenet.graph.layers.utils import constant, propagate, make_sequence
 
 def shape(tensor):
     return np.array(tensor.get_shape().as_list(), dtype=np.float32)
 
-def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
+def branch_head(feats, anchors, num_classes, input_shape, calc_loss):
     nas = len(anchors)
 
     # Reshape to batch, height, width, nanchors, box_params.
-    at = tf.reshape(make_tensor(anchors, ttype=feats.dtype), [1, 1, 1, nas, 2])
+    at = tf.reshape(constant(anchors, tf.float32), [1, 1, 1, nas, 2])
 
     grid_shape = np.array(shape(feats)[1:3], dtype=np.int32) # height, width
     x_shape = grid_shape[1]
@@ -29,8 +32,8 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
 
     feats = tf.reshape(feats, [-1, y_shape, x_shape, nas, num_classes + 5])
 
-    t_grid = make_tensor(grid_shape[::-1], ttype=feats.dtype)
-    t_input = make_tensor(input_shape[::-1], ttype=feats.dtype)
+    t_grid = constant(grid_shape[::-1], feats.dtype)
+    t_input = constant(input_shape[::-1], feats.dtype)
 
     # Adjust predictions to each spatial grid point and anchor size.
     box_xy = (tf.sigmoid(feats[..., :2]) + grid) / t_grid
@@ -43,106 +46,138 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
     else:
         return box_xy, box_wh, box_confidence, box_class_probs
 
-def correct_boxes(box_xy, box_wh, input_shape):
-    box_yx = box_xy[..., ::-1]
-    box_hw = box_wh[..., ::-1]
 
-    input_shape = make_tensor(input_shape, ttype=box_yx.dtype)
-    box_mins = box_yx - (box_hw / 2.)
-    box_maxes = box_yx + (box_hw / 2.)
+class YoloTail(tf.keras.layers.Layer):
+    def __init__(self, network):
+        super(YoloTail, self).__init__()
 
-    min_maxes = [box_mins[..., 0:1],   # y_min
-                 box_mins[..., 1:2],   # x_min
-                 box_maxes[..., 0:1],  # y_max
-                 box_maxes[..., 1:2]]  # x_max
+        self._trunk = []
+        self._branches = []
+        self._concatenations = {}
 
-    boxes =  tf.concat(min_maxes, -1)
-    boxes *= tf.concat([input_shape, input_shape], -1)
+        for i, layer in enumerate(network['layers'][:-1]):
+            ltype = layer['type']
+            self._trunk.append(LAYER_FUNCTIONS[ltype](layer))
 
-    return boxes
+            if ltype == 'concatenate':
+                self._concatenations[i] = layer['inputs']
 
-def boxes_and_scores(feats, anchors, nclasses, input_shape):
-    xy, wh, conf, probs = yolo_head(feats, anchors, nclasses, input_shape)
-    boxes = tf.reshape(correct_boxes(xy, wh, input_shape), [-1, 4])
-    box_scores = tf.reshape(conf * probs, [-1, nclasses])
+        assert network['layers'][-1]['type'] == 'yolo_output_branches'
+        out_branches = network['layers'][-1]
 
-    return boxes, box_scores
+        for i, branch in enumerate(out_branches['output_branches']):
+            idx = branch['input']
+            layers = make_sequence(branch['convolution_path'], LAYER_FUNCTIONS)
 
-def get_anchors(network):
-    base = network['metadata']['base_image_network']
-    anchors = network['metadata']['anchors']
+            self._branches.append((idx, layers))
 
-    return [[anchors[idx] for idx in mask] for mask in MASKS[base]]
+    def call(self, inputs):
+        outputs = []
+        next_inputs = inputs
 
-def output_boxes(outputs, anchors, nclasses, score_thresh, iou_thresh=0.5):
-    input_shape = shape(outputs[0])[1:3] * 32
+        for i, layer in enumerate(self._trunk):
+            if i in self._concatenations:
+                inputs = self._concatenations[i]
+                next_inputs = layer([outputs[j] for j in inputs])
+            else:
+                next_inputs = layer(next_inputs)
 
-    boxes = []
-    box_scores = []
+            outputs.append(next_inputs)
 
-    for out, ans in zip(outputs, anchors):
-        bxs, scs = boxes_and_scores(out, ans, nclasses, input_shape)
-        boxes.append(bxs)
-        box_scores.append(scs)
+        return [propagate(layers, outputs[i]) for i, layers in self._branches]
 
-    boxes = tf.concat(boxes, 0)
-    box_scores = tf.concat(box_scores, 0)
 
-    mask = box_scores >= score_thresh
-    max_boxes_tensor = make_tensor(MAX_BOUNDING_BOXES, ttype='int32')
+class BoxLocator(tf.keras.layers.Layer):
+    def __init__(self, network, nclasses, extras):
+        super(BoxLocator, self).__init__()
 
-    boxes_ = []
-    scores_ = []
-    classes_ = []
+        self._nclasses = nclasses
+        self._threshold = extras.get('bounding_box_threshold', IGNORE_THRESHOLD)
+        self._iou_threshold = extras.get('iou_threshold', IOU_THRESHOLD)
+        self._anchors = get_anchors(network)
 
-    for c in range(nclasses):
-        class_boxes = tf.boolean_mask(boxes, mask[:, c])
-        class_box_scores = tf.boolean_mask(box_scores[:, c], mask[:, c])
-        nms_index = tf.image.non_max_suppression(class_boxes,
-                                                 class_box_scores,
-                                                 max_boxes_tensor,
-                                                 iou_threshold=iou_thresh)
+    def correct_boxes(self, box_xy, box_wh, input_shape):
+        box_yx = box_xy[..., ::-1]
+        box_hw = box_wh[..., ::-1]
 
-        class_boxes = tf.gather(class_boxes, nms_index)
-        class_box_scores = tf.gather(class_box_scores, nms_index)
-        classes = tf.ones_like(class_box_scores, 'int32') * c
+        input_shape = constant(input_shape, box_yx.dtype)
+        box_mins = box_yx - (box_hw / 2.)
+        box_maxes = box_yx + (box_hw / 2.)
 
-        boxes_.append(class_boxes)
-        scores_.append(class_box_scores)
-        classes_.append(classes)
+        min_maxes = [box_mins[..., 0:1],   # y_min
+                     box_mins[..., 1:2],   # x_min
+                     box_maxes[..., 0:1],  # y_max
+                     box_maxes[..., 1:2]]  # x_max
 
-    boxes_ = tf.concat(boxes_, 0)
-    scores_ = tf.concat(scores_, 0)
-    classes_ = tf.concat(classes_, 0)
+        boxes =  tf.concat(min_maxes, -1)
+        boxes *= tf.concat([input_shape, input_shape], -1)
 
-    return boxes_, scores_, classes_
+        return boxes
 
-def box_detector(network, variables):
-    complete_network = complete_image_network(network['image_network'])
-    nclasses = number_of_classes(network)
-    threshold = variables.get('bounding_box_threshold', BOX_IGNORE_THRESH)
-    anchors = get_anchors(complete_network)
-    layers = complete_network['layers']
+    def branch_head(self, features, anchors, input_shape):
+        return branch_head(features, anchors, self._nclasses, input_shape, False)
 
-    Xin = cnn_inputs(complete_network, variables)
+    def boxes_and_scores(self, features, anchors, input_shape):
+        xy, wh, conf, probs = self.branch_head(features, anchors, input_shape)
+        boxes = tf.reshape(self.correct_boxes(xy, wh, input_shape), [-1, 4])
+        box_scores = tf.reshape(conf * probs, [-1, self._nclasses])
 
-    _, outputs = make_all_outputs(Xin, layers[:-1], None, None)
-    _, feats = yolo_output_branches(outputs, layers[-1], None)
+        return boxes, box_scores
 
-    boxes = output_boxes(feats, anchors, nclasses, threshold)
+    def call(self, inputs):
+        input_shape = shape(inputs[0])[1:3] * 32
 
-    return {'bounding_box_preds': boxes}
+        boxes = []
+        box_scores = []
 
-def image_projector(variables, out_key, tf_session):
-    X = variables['image_paths']
-    preds = variables[out_key]
+        for features, anchors in zip(inputs, self._anchors):
+            bxs, scs = self.boxes_and_scores(features, anchors, input_shape)
+            boxes.append(bxs)
+            box_scores.append(scs)
 
-    def projector(image_path_s):
-        if isinstance(image_path_s, str):
-            net_input =  np.array([[image_path_s]])
-        else:
-            net_input = np.array(image_path_s)
+        boxes = tf.concat(boxes, 0)
+        box_scores = tf.concat(box_scores, 0)
 
-        return tf_session.run(preds, feed_dict={X: net_input})
+        mask = box_scores >= self._threshold
+        max_boxes = constant(MAX_BOUNDING_BOXES, tf.int32)
 
-    return projector
+        boxes_ = []
+        scores_ = []
+        classes_ = []
+
+        for c in range(self._nclasses):
+            c_boxes = tf.boolean_mask(boxes, mask[:, c])
+            c_scores = tf.boolean_mask(box_scores[:, c], mask[:, c])
+
+            iou_t = self._iou_threshold
+            nms = tf.image.non_max_suppression
+            nms_index = nms(c_boxes, c_scores, max_boxes, iou_threshold=iou_t)
+
+            c_boxes = tf.gather(c_boxes, nms_index)
+            c_scores = tf.gather(c_scores, nms_index)
+            classes = tf.ones_like(c_scores, tf.int32) * c
+
+            boxes_.append(c_boxes)
+            scores_.append(c_scores)
+            classes_.append(classes)
+
+        return (tf.expand_dims(tf.concat(boxes_, 0), 0, name='boxes'),
+                tf.expand_dims(tf.concat(scores_, 0), 0, name='scores'),
+                tf.expand_dims(tf.concat(classes_, 0), 0, name='classes'))
+
+def box_detector(model, extras):
+    network = complete_image_network(model['image_network'])
+    image_input = kl.Input((1,), dtype=tf.string, name='image')
+
+    reader = ImageReader(network, extras)
+    loader = ImageLoader(network)
+    yolo_tail = YoloTail(network)
+    locator = BoxLocator(network, number_of_classes(model), extras)
+
+    raw_image = reader(image_input[:,0])
+    image = loader(raw_image)
+    features = yolo_tail(image)
+
+    boxes, scores, classes = locator(features)
+
+    return tf.keras.Model(inputs=image_input, outputs=[boxes, scores, classes])

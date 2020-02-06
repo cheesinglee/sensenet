@@ -6,11 +6,12 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import CATEGORICAL, IMAGE_PATH, BOUNDING_BOX
-from sensenet.pretrained import get_pretrained_network, get_pretrained_readout
-from sensenet.pretrained import cnn_resource_path
 from sensenet.load import load_points
+from sensenet.pretrained import complete_image_network, cnn_resource_path
+from sensenet.pretrained import get_pretrained_network, get_pretrained_readout
 # from sensenet.graph.construct import make_layers
 from sensenet.graph.classifier import deepnet_model
+from sensenet.graph.bounding_box import box_detector
 # from sensenet.graph.image import image_preprocessor, complete_image_network
 # from sensenet.graph.bounding_box import box_detector, image_projector
 
@@ -40,7 +41,10 @@ def create_image_model(name, bb_thld=None):
         'preprocess': [{'type': IMAGE_PATH, 'index': 0}]
     }
 
-    return network, deepnet_model(network, extras)
+    if 'yolo' in name:
+        return network, box_detector(network, extras)
+    else:
+        return network, deepnet_model(network, extras)
 
 def classify(network_name, accuracy_threshold):
     network, image_model = create_image_model(network_name)
@@ -51,7 +55,6 @@ def classify(network_name, accuracy_threshold):
 
         for i, p in enumerate(pred.flatten().tolist()):
             if i == cidx:
-                print(i, p)
                 assert p > accuracy_threshold, str((i, p))
             else:
                 assert p < 0.02, str((i, p))
@@ -73,17 +76,16 @@ def test_mobilenetv2():
     classify('mobilenetv2', 0.88)
 
 def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
-    network, variables = create_image_model(network_name, threshold)
+    network, detector = create_image_model(network_name, threshold)
+    boxes, scores, classes = detector.predict([['pizza_people.jpg']])
 
-    with tf.Session() as sess:
-        detector = image_projector(variables, 'bounding_box_preds', sess)
-        boxes, scores, classes = detector('pizza_people.jpg')
+    print(scores)
 
-    assert len(boxes) == nboxes
-    assert sorted(set(classes)) == sorted(class_list), str(set(classes))
+    assert len(boxes[0]) == nboxes
+    assert sorted(set(classes[0])) == sorted(class_list), str(set(classes[0]))
 
 def test_yolov3():
     detect_bounding_boxes('yolov3', 6, [0, 60, 53], 0.6)
 
 def test_tinyyolov3():
-    detect_bounding_boxes('tinyyolov3', 3, [0, 53], 0.3)
+    detect_bounding_boxes('tinyyolov3', 3, [0, 53], 0.4)

@@ -75,8 +75,6 @@ def propagate(layers, inputs):
     if len(layers) > 0:
         for layer in layers:
             next_inputs = layer(next_inputs)
-            # lname = type(layer).__name__.split('.')[-1] + ': '
-            # next_inputs = log_summary(next_inputs, lname)
 
     return next_inputs
 
@@ -111,9 +109,7 @@ def variable(value, is_training, datatype=tf.float32):
                        dtype=datatype)
 
 def constant(value, datatype=tf.float32):
-    return tf.Variable(initial_value=value,
-                       trainable=False,
-                       dtype=datatype)
+    return tf.constant(value, dtype=datatype)
 
 def transpose(amatrix):
     arr = np.array(amatrix)

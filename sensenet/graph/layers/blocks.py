@@ -72,41 +72,13 @@ def mobilev2_block(params):
 
 #     return BlockLayer(params, paths, type_str)
 
-def yolo_output_branches(params):
-    net = params['base_image_network']
-    # branches = params['output_branches']
-
-    # layer = {
-    #     'type': 'yolo_output_branches',
-    #     'base_image_network': net,
-    # }
-
-    # outputs = []
-    # out_branches = []
-
-    # for i, branch in enumerate(branches):
-    #     branch_input = layer_outputs[branch['input']]
-    #     path = branch['convolution_path']
-    #     players, output = make_layers(branch_input, path, is_training)
-
-    #     out_branch = dict(branch)
-    #     out_branch['convolution_path'] = players
-
-    #     out_branches.append(out_branch)
-    #     outputs.append(output)
-
-    # layer['output_branches'] = out_branches
-
-    # return layer, outputs
-
 BLOCKS = {
     'xception_block': xception_block,
     'dense_residual_block': dense_res_block,
     'resnet_block': resnet_block,
     'resnet18_block': resnet_block,
     'darknet_residual_block': darknet_block,
-    'mobilenet_residual_block': mobilev2_block,
-    'yolo_output_branches': yolo_output_branches
+    'mobilenet_residual_block': mobilev2_block
 }
 
 # def make_all_outputs(X, layers_params, is_training, keep_prob):

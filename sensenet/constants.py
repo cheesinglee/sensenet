@@ -26,10 +26,18 @@ IMAGE_STANDARDIZERS = {
     'channelwise_standardizing': (TORCH_MEAN, TORCH_STD)
 }
 
+# Default parameters for YOLO bounding box detection
 MAX_BOUNDING_BOXES = 16
-BOX_IGNORE_THRESH = 0.5
+IGNORE_THRESHOLD = 0.5
+IOU_THRESHOLD = 0.5
 
-# Sizes for prospective YOLO bounding boxes
+# Which YOLO bounding boxes to use at each scale
+MASKS = {
+    'yolov3': [[6,7,8], [3,4,5], [0,1,2]],
+    'tinyyolov3': [[3,4,5], [0,1,2]]
+}
+
+# Default sizes for prospective YOLO bounding boxes
 ANCHORS = {
     'yolov3': [[10, 13],
                [16, 30],
@@ -46,10 +54,4 @@ ANCHORS = {
                    [81, 82],
                    [135, 169],
                    [344, 319]]
-}
-
-# Which YOLO bounding boxes to use at each scale
-MASKS = {
-    'yolov3': [[6,7,8], [3,4,5], [0,1,2]],
-    'tinyyolov3': [[3,4,5], [0,1,2]]
 }

@@ -71,19 +71,23 @@ def padding_2d(params):
     padding = [[int(p) for p in ps] for ps in params['padding']]
     return kl.ZeroPadding2D(padding)
 
-def upsampling_2d():
+def upsampling_2d(params):
     return kl.UpSampling2D(params['size'])
 
+def concatenate(params):
+    return kl.Concatenate()
+
 CORE_LAYERS = {
-    'dense': dense,
     'activation': activation,
+    'average_pool_2d': avg_pool_2d,
     'batch_normalization': batchnorm,
+    'concatenate': concatenate,
+    'dense': dense,
     'dropout': dropout,
     'flatten': flatten,
-    'average_pool_2d': avg_pool_2d,
-    'max_pool_2d': max_pool_2d,
     'global_average_pool_2d': global_avg_pool_2d,
     'global_max_pool_2d': global_max_pool_2d,
+    'max_pool_2d': max_pool_2d,
     'padding_2d': padding_2d,
     'upsampling_2d': upsampling_2d
 }
