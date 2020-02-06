@@ -7,9 +7,7 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 kl = sensenet.importers.import_keras_layers()
 
-# from sensenet.graph.layers.utils import is_tf_variable, ACTIVATORS
-# from sensenet.graph.layers.utils import make_tensor, transpose
-from sensenet.graph.layers.utils import initializer_map, activation_function
+from sensenet.layers.utils import initializer_map, activation_function
 
 def dense(params):
     imap = initializer_map(params)

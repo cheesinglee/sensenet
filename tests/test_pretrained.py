@@ -6,14 +6,12 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import CATEGORICAL, IMAGE_PATH, BOUNDING_BOX
+
 from sensenet.load import load_points
 from sensenet.pretrained import complete_image_network, cnn_resource_path
 from sensenet.pretrained import get_pretrained_network, get_pretrained_readout
-# from sensenet.graph.construct import make_layers
-from sensenet.graph.classifier import deepnet_model
-from sensenet.graph.bounding_box import box_detector
-# from sensenet.graph.image import image_preprocessor, complete_image_network
-# from sensenet.graph.bounding_box import box_detector, image_projector
+from sensenet.models.deepnet import deepnet_model
+from sensenet.models.bounding_box import box_detector
 
 EXTRA_PARAMS = {'path_prefix': 'tests/data/images/'}
 
@@ -78,8 +76,6 @@ def test_mobilenetv2():
 def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
     network, detector = create_image_model(network_name, threshold)
     boxes, scores, classes = detector.predict([['pizza_people.jpg']])
-
-    print(scores)
 
     assert len(boxes[0]) == nboxes
     assert sorted(set(classes[0])) == sorted(class_list), str(set(classes[0]))

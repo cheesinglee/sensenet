@@ -8,9 +8,9 @@ tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import NUMERIC, CATEGORICAL
 from sensenet.load import load_points
-from sensenet.graph.preprocess.preprocessor import Preprocessor
-from sensenet.graph.layers.tree import ForestPreprocessor
-from sensenet.graph.classifier import deepnet_model
+from sensenet.preprocess.preprocessor import Preprocessor
+from sensenet.layers.tree import ForestPreprocessor
+from sensenet.models.deepnet import deepnet_model
 
 TEST_DATA_DIR = 'tests/data/'
 

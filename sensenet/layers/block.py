@@ -8,10 +8,9 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 kl = sensenet.importers.import_keras_layers()
 
-from sensenet.graph.layers.utils import activation_function
-from sensenet.graph.layers.utils import make_sequence, propagate
-from sensenet.graph.layers.core_layers import CORE_LAYERS
-from sensenet.graph.layers.convolutional_layers import CONVOLUTIONAL_LAYERS
+from sensenet.layers.utils import activation_function, make_sequence, propagate
+from sensenet.layers.core import CORE_LAYERS
+from sensenet.layers.convolutional import CONVOLUTIONAL_LAYERS
 
 SIMPLE_LAYERS = {}
 SIMPLE_LAYERS.update(CORE_LAYERS)

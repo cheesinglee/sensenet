@@ -2,7 +2,7 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.accessors import number_of_classes
-from sensenet.graph.layers.utils import constant
+from sensenet.layers.utils import constant
 
 def to_node_list(tree, noutputs, start_idx):
     this_node = {'node_id': start_idx}

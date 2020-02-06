@@ -3,7 +3,7 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 kl = sensenet.importers.import_keras_layers()
 
-from sensenet.graph.layers.utils import initializer_map, activation_function
+from sensenet.layers.utils import initializer_map, activation_function
 
 def conv_2d(params):
     kernel = np.array(params['kernel'])

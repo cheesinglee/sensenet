@@ -1,7 +1,7 @@
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
-from sensenet.graph.layers.utils import constant
+from sensenet.layers.utils import constant
 
 class NumericPreprocessor(tf.keras.layers.Layer):
     def __init__(self, preprocessor):

@@ -7,9 +7,9 @@ from sensenet.constants import MAX_BOUNDING_BOXES, MASKS
 from sensenet.constants import IGNORE_THRESHOLD, IOU_THRESHOLD
 from sensenet.accessors import number_of_classes, get_anchors
 from sensenet.pretrained import complete_image_network
-from sensenet.graph.preprocess.image import ImageReader, ImageLoader
-from sensenet.graph.layers.construct import LAYER_FUNCTIONS
-from sensenet.graph.layers.utils import constant, propagate, make_sequence
+from sensenet.layers.construct import LAYER_FUNCTIONS
+from sensenet.layers.utils import constant, propagate, make_sequence
+from sensenet.preprocess.image import ImageReader, ImageLoader
 
 def shape(tensor):
     return np.array(tensor.get_shape().as_list(), dtype=np.float32)

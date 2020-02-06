@@ -3,10 +3,10 @@ tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import NUMERIC, CATEGORICAL, IMAGE_PATH
 
-from sensenet.graph.preprocess.categorical import CategoricalPreprocessor
-from sensenet.graph.preprocess.numeric import NumericPreprocessor
-from sensenet.graph.preprocess.numeric import BinaryPreprocessor
-from sensenet.graph.preprocess.image import ImagePreprocessor
+from sensenet.preprocess.categorical import CategoricalPreprocessor
+from sensenet.preprocess.numeric import NumericPreprocessor
+from sensenet.preprocess.numeric import BinaryPreprocessor
+from sensenet.preprocess.image import ImagePreprocessor
 
 class Preprocessor(tf.keras.layers.Layer):
     def __init__(self, model, extras):

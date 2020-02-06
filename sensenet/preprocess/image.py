@@ -3,8 +3,8 @@ tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import IMAGE_STANDARDIZERS
 from sensenet.pretrained import complete_image_network
-from sensenet.graph.layers.utils import constant, propagate
-from sensenet.graph.layers.construct import layer_sequence
+from sensenet.layers.utils import constant, propagate
+from sensenet.layers.construct import layer_sequence
 
 class ImageReader(tf.keras.layers.Layer):
     def __init__(self, network, extras):
