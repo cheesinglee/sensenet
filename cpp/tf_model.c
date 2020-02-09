@@ -8,6 +8,9 @@ typedef struct ModelSummary {
     TF_Graph* graph;
     TF_Output* feeds;
     TF_Output* fetches;
+    int numericInputs;
+    int stringInputs;
+    int totalInputs;
 } Model;
 
 void deleteModel(Model model) {
@@ -17,11 +20,11 @@ void deleteModel(Model model) {
     TF_DeleteGraph(model.graph);
     TF_DeleteStatus(status);
 
-    free(model.feeds);
-    free(model.fetches);
+    if (model.feeds != NULL) free(model.feeds);
+    if (model.fetches != NULL) free(model.fetches);
 }
 
-typedef struct OutputFloats {
+typedef struct ModelNumericOutputs {
     float* data;
     int nDims;
     int64_t* dims;
@@ -35,6 +38,58 @@ void deleteOutputs(Outputs output) {
     if (output.dims != NULL) free(output.dims);
 }
 
+typedef struct ModelNumericInputs {
+    float* data;
+    int nDims;
+    int64_t* dims;
+} NumericInputs;
+
+NumericInputs createNumericInputs(float* data, int nDims, int64_t* dims) {
+    NumericInputs input;
+    input.data = data;
+    input.nDims = nDims;
+    input.dims = dims;
+
+    return input;
+}
+
+void deleteNumericInputs(NumericInputs input) {
+    TF_Status* status = TF_NewStatus();
+
+    if (input.data != NULL) free(input.data);
+    if (input.dims != NULL) free(input.dims);
+}
+
+typedef struct ModelStringInputs {
+    char** data;
+    int nDims;
+    int64_t* dims;
+} StringInputs;
+
+int dataLength(int64_t* dims, int nDims) {
+    if (nDims > 0) {
+        int dLen = 1;
+        for (int i = 0; i < nDims; i++) dLen *= dims[i];
+
+        return dLen;
+    }
+    else return 0;
+}
+
+void deleteStringInputs(StringInputs input) {
+    TF_Status* status = TF_NewStatus();
+
+    if (input.nDims > 0) {
+        int nStrings = dataLength(input.dims, input.nDims);
+
+        for (int i = 0; i < nStrings; i++)
+            if (input.data[i] != NULL) free(input.data[i]);
+
+        if (input.data != NULL) free(input.data);
+        if (input.dims != NULL) free(input.dims);
+    }
+}
+
 TF_Output* makeIO(TF_Graph* graph, const char** names, int nInputs) {
     TF_Output* feeds = malloc(sizeof(TF_Input) * nInputs);
     for (int i = 0; i < nInputs; i++) {
@@ -45,48 +100,24 @@ TF_Output* makeIO(TF_Graph* graph, const char** names, int nInputs) {
     return feeds;
 }
 
-Model loadModel(const char* exportDir, const char** inputNames, int nInputs) {
-    TF_Graph* graph = TF_NewGraph();
-    TF_Status* status = TF_NewStatus();
-    TF_SessionOptions* sessionOpts = TF_NewSessionOptions();
+TF_Tensor* floatTensor(NumericInputs input) {
+    float* data = input.data;
+    int64_t* dims = input.dims;
 
-    const char* tag = "serve";
-    const char* outputNames[] = {"PartitionedCall"};
+    int nvals = dataLength(input.dims, input.nDims);
+    int dSize = sizeof(float) * nvals;
 
-    TF_Session* session = TF_LoadSessionFromSavedModel(sessionOpts,
-                                                       NULL,
-                                                       exportDir,
-                                                       &tag,
-                                                       1,
-                                                       graph,
-                                                       NULL,
-                                                       status);
-
-
-    Model model;
-
-    model.session = session;
-    model.graph = graph;
-    model.feeds = makeIO(graph, inputNames, nInputs);
-    model.fetches = makeIO(graph, outputNames, 1);
-
-    TF_DeleteStatus(status);
-    TF_DeleteSessionOptions(sessionOpts);
-
-    return model;
-}
-
-TF_Tensor* floatMatrix(const float values[], const int64_t dims[]) {
-    int nvals = dims[0] * dims[1];
-    int dataSize = sizeof(float) * nvals;
-
-    TF_Tensor* t = TF_AllocateTensor(TF_FLOAT, dims, 2, dataSize);
-    memcpy(TF_TensorData(t), values, dataSize);
+    TF_Tensor* t = TF_AllocateTensor(TF_FLOAT, input.dims, input.nDims, dSize);
+    memcpy(TF_TensorData(t), input.data, dSize);
 
     return t;
 }
 
-Outputs parseOutput(TF_Tensor* outTensor, TF_Status* status) {
+TF_Tensor* stringTensor(StringInputs input) {
+    return NULL;
+}
+
+Outputs parseOutputs(TF_Tensor* outTensor, TF_Status* status) {
     Outputs output;
 
     output.statusCode = (int)TF_GetCode(status);
@@ -121,45 +152,6 @@ Outputs parseOutput(TF_Tensor* outTensor, TF_Status* status) {
     return output;
 }
 
-Outputs runModel(Model model,
-                 const float values1[],
-                 const int64_t dims1[],
-                 const float values2[],
-                 const int64_t dims2[]) {
-
-    int nInputs = 2;
-    TF_Status* status = TF_NewStatus();
-
-    TF_Tensor* feedValues[] = {
-        floatMatrix(values1, dims1),
-        floatMatrix(values2, dims2)
-    };
-
-    TF_Tensor** fetchValues = malloc(sizeof(TF_Tensor*));
-
-    TF_SessionRun(model.session,
-                  NULL,
-                  (TF_Output*)(model.feeds),
-                  feedValues,
-                  nInputs,
-                  model.fetches,
-                  fetchValues,
-                  1,
-                  NULL,
-                  0,
-                  NULL,
-                  status);
-
-    for (int i = 0; i < nInputs; i++) {
-        TF_DeleteTensor(feedValues[i]);
-    }
-
-    Outputs output = parseOutput(fetchValues[0], status);
-    TF_DeleteStatus(status);
-
-    return output;
-}
-
 void printArray(float* data, int offset, int len) {
     int end = offset + len;
 
@@ -168,6 +160,100 @@ void printArray(float* data, int offset, int len) {
         printf("%6.2f ", data[i]);
     }
     printf("%6.2f]", data[end - 1]);
+}
+
+// Load a TensorFlow model from a SavedModel directory
+//
+// The string `exportDir` is a directory in which a model has been
+// preiously saved in the SavedModel format, (e.g., in python using
+// tf.keras.Model.save).  The array of strings `inputNames` is a list
+// of the named inputs to the model, which can be discovered with the
+// `saved_model_cli` and are generally of the form
+// "<exportedSignature>_<graphInputName>".  `nInputs` is of course the
+// number of names.
+//
+// The function returns a Model struct containing pointers to the
+// created TF_Graph and TF_Session and to the TF_Output* structures
+// used to represent the inputs and outputs to the model, and should
+// be used mainly as an input argument to `runModel` and finally to
+// `deleteModel`.
+Model loadModel(const char* exportDir,
+                const char** inputNames,
+                int nNumeric,
+                int nString) {
+
+    TF_Graph* graph = TF_NewGraph();
+    TF_Status* status = TF_NewStatus();
+    TF_SessionOptions* sessionOpts = TF_NewSessionOptions();
+
+    const char* tag = "serve";
+    const char* outputNames[] = {"PartitionedCall"};
+
+    TF_Session* session = TF_LoadSessionFromSavedModel(sessionOpts,
+                                                       NULL,
+                                                       exportDir,
+                                                       &tag,
+                                                       1,
+                                                       graph,
+                                                       NULL,
+                                                       status);
+
+
+    Model model;
+    int totalInputs = nNumeric + nString;
+
+    model.session = session;
+    model.graph = graph;
+    model.feeds = makeIO(graph, inputNames, totalInputs);
+    model.fetches = makeIO(graph, outputNames, 1);
+
+    model.numericInputs = nNumeric;
+    model.stringInputs = nString;
+    model.totalInputs = totalInputs;
+
+    TF_DeleteStatus(status);
+    TF_DeleteSessionOptions(sessionOpts);
+
+    return model;
+}
+
+// Runs the Model `model`, created using `loadModel`, on the given inputs.
+//
+// Invokes the loaded model on the given inputs.  Numeric input tensors are assumed to be in row-major order.
+Outputs runModel(Model model, NumericInputs* numIns, StringInputs* strIns) {
+    TF_Status* status = TF_NewStatus();
+    TF_Tensor** feedValues = malloc(sizeof(TF_Tensor*) * model.totalInputs);
+    TF_Tensor** fetchValues = malloc(sizeof(TF_Tensor*));
+
+    for (int i = 0; i < model.numericInputs; i++)
+        feedValues[i] = floatTensor(numIns[i]);
+
+    for (int i = 0; i < model.stringInputs; i++)
+        feedValues[model.numericInputs + i] = stringTensor(strIns[i]);
+
+    TF_SessionRun(model.session,
+                  NULL,
+                  model.feeds,
+                  feedValues,
+                  model.totalInputs,
+                  model.fetches,
+                  fetchValues,
+                  1,
+                  NULL,
+                  0,
+                  NULL,
+                  status);
+
+    Outputs output = parseOutputs(fetchValues[0], status);
+
+    TF_DeleteStatus(status);
+    for (int i = 0; i < model.totalInputs; i++)
+        TF_DeleteTensor(feedValues[i]);
+
+    free(feedValues);
+    free(fetchValues);
+
+    return output;
 }
 
 void printOutput(Outputs output) {
@@ -206,18 +292,23 @@ int main() {
 
   printf("Loading model from '%s'...\n", modelName);
 
-  Model model = loadModel(modelName, inputs, 2);
+  Model model = loadModel(modelName, inputs, 2, 0);
 
-  const float v1[] = {1, 2, 3, 4};
-  const float v2[] = {10, 10};
-  const int64_t d1[] = {2, 2};
-  const int64_t d2[] = {2, 1};
+  float data1[] = {1, 2, 3, 4};
+  int64_t dims1[] = {2, 2};
+  float data2[] = {10, 10};
+  int64_t dims2[] = {2, 1};
 
-  Outputs output = runModel(model, v1, d1, v2, d2);
+  NumericInputs input1 = createNumericInputs(data1, 2, dims1);
+  NumericInputs input2 = createNumericInputs(data2, 2, dims2);
+  NumericInputs allInputs[] = {input1, input2};
+
+  Outputs output = runModel(model, allInputs, NULL);
+
   printOutput(output);
 
   deleteOutputs(output);
-  // deleteModel(model);
+  deleteModel(model);
 
   return 0;
 }
