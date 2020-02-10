@@ -10,6 +10,11 @@ int dataLength(int64_t* dims, int nDims) {
     else return 0;
 }
 
+void deleteStringArray(char** strings, int nStrings) {
+    for (int i = 0; i < nStrings; i++)
+        if (strings[i] != NULL) free(strings[i]);
+}
+
 typedef struct ModelSummary {
     TF_Session* session;
     TF_Graph* graph;
@@ -20,15 +25,17 @@ typedef struct ModelSummary {
     int totalInputs;
 } Model;
 
-void deleteModel(Model model) {
+void deleteModel(Model* model) {
     TF_Status* status = TF_NewStatus();
 
-    TF_DeleteSession(model.session, status);
-    TF_DeleteGraph(model.graph);
+    TF_DeleteSession(model->session, status);
+    TF_DeleteGraph(model->graph);
     TF_DeleteStatus(status);
 
-    if (model.feeds != NULL) free(model.feeds);
-    if (model.fetches != NULL) free(model.fetches);
+    if (model->feeds != NULL) free(model->feeds);
+    if (model->fetches != NULL) free(model->fetches);
+
+    free(model)
 }
 
 typedef struct ModelNumericOutputs {
@@ -39,10 +46,12 @@ typedef struct ModelNumericOutputs {
     int statusCode;
 } Outputs;
 
-void deleteOutputs(Outputs output) {
-    if (output.data != NULL) free(output.data);
-    if (output.statusMessage != NULL) free(output.statusMessage);
-    if (output.dims != NULL) free(output.dims);
+void deleteOutputs(Outputs* output) {
+    if (output->data != NULL) free(output->data);
+    if (output->statusMessage != NULL) free(output->statusMessage);
+    if (output->dims != NULL) free(output->dims);
+
+    free(output);
 }
 
 typedef struct ModelNumericInputs {
@@ -52,19 +61,19 @@ typedef struct ModelNumericInputs {
 } NumericInputs;
 
 NumericInputs createNumericInputs(float* data, int nDims, int64_t* dims) {
-    NumericInputs input;
-    input.data = data;
-    input.nDims = nDims;
-    input.dims = dims;
+    NumericInputs* input = malloc(sizeof(NumericInput));
+
+    input->data = data;
+    input->nDims = nDims;
+    input->dims = dims;
 
     return input;
 }
 
-void deleteNumericInputs(NumericInputs input) {
-    TF_Status* status = TF_NewStatus();
-
-    if (input.data != NULL) free(input.data);
-    if (input.dims != NULL) free(input.dims);
+void deleteNumericInputs(NumericInputs* input) {
+    if (input->data != NULL) free(input->data);
+    if (input->dims != NULL) free(input->dims);
+    free(input);
 }
 
 typedef struct ModelStringInputs {
@@ -73,16 +82,14 @@ typedef struct ModelStringInputs {
     int64_t* dims;
 } StringInputs;
 
-void deleteStringInputs(StringInputs input) {
-    TF_Status* status = TF_NewStatus();
+void deleteStringInputs(StringInputs* input) {
+    if (input->nDims > 0) {
+        int nStrings = dataLength(input->dims, input->nDims);
+        deleteStringArray(input->data, nStrings);
 
-    if (input.nDims > 0) {
-        int nStrings = dataLength(input.dims, input.nDims);
-
-        for (int i = 0; i < nStrings; i++)
-            if (input.data[i] != NULL) free(input.data[i]);
-
-        if (input.data != NULL) free(input.data);
-        if (input.dims != NULL) free(input.dims);
+        if (input->data != NULL) free(input->data);
+        if (input->dims != NULL) free(input->dims);
     }
+
+    free(input);
 }
