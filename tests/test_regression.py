@@ -27,9 +27,6 @@ def read_regression(path):
     with gzip.open(os.path.join(TEST_DATA_DIR, path), "rb") as fin:
         return json.loads(fin.read().decode('utf-8'))
 
-# def make_feed(variables, inputs):
-#     return {variables[k]: inputs[k] for k in inputs.keys()}
-
 def validate_predictions(test_artifact):
     test_model, test_points = [test_artifact[k] for k in ['model', 'validation']]
 

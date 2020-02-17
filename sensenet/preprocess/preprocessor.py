@@ -33,16 +33,16 @@ class Preprocessor(tf.keras.layers.Layer):
 
 
     def call(self, inputs):
-        img_idx = 0
+        str_idx = 0
         processed = []
 
-        image_inputs = inputs['image']
+        string_inputs = inputs['string']
         numeric_inputs = inputs['numeric']
 
         for i, pp in enumerate(self._preprocessors):
-            if isinstance(pp, ImagePreprocessor):
-                processed.append(pp(image_inputs[:,img_idx]))
-                img_idx += 1
+            if isinstance(pp, (ImagePreprocessor, CategoricalPreprocessor)):
+                processed.append(pp(string_inputs[:,str_idx]))
+                str_idx += 1
             else:
                 processed.append(pp(numeric_inputs[:,i]))
 

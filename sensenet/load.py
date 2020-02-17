@@ -18,7 +18,7 @@ def load_points(model, points):
 
     inputs = {
         'numeric': np.zeros((rows, cols), dtype=np.float32),
-        'image': [list() for _ in range(rows)]
+        'string': [list() for _ in range(rows)]
     }
 
     for i, proc in enumerate(preprocessors):
@@ -28,15 +28,12 @@ def load_points(model, points):
         if proc['type'] == NUMERIC:
             for j, p in enumerate(points):
                 inputs['numeric'][j, i] = float(p[pidx])
-        elif proc['type'] == CATEGORICAL:
+        elif proc['type'] in [IMAGE_PATH, CATEGORICAL]:
             for j, p in enumerate(points):
-                inputs['numeric'][j, i] = get_index(values, str(p[pidx]))
-        elif proc['type'] == IMAGE_PATH:
-            for j, p in enumerate(points):
-                inputs['image'][j].append(str(p[pidx]))
+                inputs['string'][j].append(str(p[pidx]))
         else:
             raise ValueError('Unknown processor type "%s"' % proc['type'])
 
-    inputs['image'] = np.array(inputs['image'])
+    inputs['string'] = np.array(inputs['string'])
 
     return inputs
