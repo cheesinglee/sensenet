@@ -1,11 +1,6 @@
-#include <vector>
-#include <string>
+#include <stdlib.h>
 
-#define NUMERIC 0
-#define CATEGORICAL 1
-#define IMAGE 2
-
-using namespace std;
+#include "tf_model.h"
 
 typedef enum PreprocessorType {
     NUMERIC = 0,
@@ -21,7 +16,8 @@ typedef struct Preprocessor {
 } Preprocessor;
 
 Preprocessor* createPreprocessors(char* jsonSpec) {
-
+    // TODO: Actually do this
+    return NULL;
 }
 
 void deletePreprocessors(Preprocessor* preprocessors, int nPreprocessors) {
@@ -68,8 +64,10 @@ Dataset* createDataset(int nRows, int nColumns, Preprocessor* procs) {
         dataset->stringInputs = createStringInputs(strData, 2, numDims);
     }
     else {
-        datset->stringInputs = NULL;
+        dataset->stringInputs = NULL;
     }
+
+    return dataset;
 }
 
 void deleteDataset(Dataset* dataset) {
@@ -82,68 +80,74 @@ void deleteDataset(Dataset* dataset) {
     free(dataset);
 }
 
-int computeOffset(NumericInputs* inputs, int row, int col) {
-    return input->dims[1] * row + col;
+int computeNumericOffset(NumericInputs* inputs, int row, int col) {
+    return inputs->dims[1] * row + col;
 }
 
-int computeOffset(StringInputs* inputs, int row, int col) {
-    return input->dims[1] * row + col;
+int computeStringOffset(StringInputs* inputs, int row, int col) {
+    return inputs->dims[1] * row + col;
 }
 
-bool set(Dataset* dataset, int row, int col, float value) {
-    if (row > 0 && col > 0 && row < dataset->nRows && col < dataset->nCols) {
+bool setNumeric(Dataset* dataset, int row, int col, float value) {
+    if (row > 0 && col > 0 && row < dataset->nRows && col < dataset->nColumns) {
         if (dataset->preprocessors[col].type == NUMERIC) {
             NumericInputs* inputs = dataset->numericInputs;
-            int offset = computeOffset(inputs, row, col);
+            int offset = computeNumericOffset(inputs, row, col);
             dataset->numericInputs->data[offset] = value;
+
+            return true;
         }
         else return false;
     }
-    else return false
+    else return false;
 }
 
-bool set(Dataset* dataset, int row, int col, char* value) {
-    if (row > 0 && col > 0 && row < dataset->nRows && col < dataset->nCols) {
+bool setString(Dataset* dataset, int row, int col, char* value) {
+    if (row > 0 && col > 0 && row < dataset->nRows && col < dataset->nColumns) {
         PreprocessorType type = dataset->preprocessors[col].type;
 
         if (type == CATEGORICAL || type == IMAGE) {
             StringInputs* inputs = dataset->stringInputs;
-            int offset = computeOffset(inputs, row, col);
+            int offset = computeStringOffset(inputs, row, col);
             inputs->data[offset] = value;
+
+            return true;
         }
         else return false;
     }
-    else return false
+    else return false;
 }
 
-bool set(Dataset* dataset, int col, float* value) {
-    if (col > 0 && col < dataset->nCols) {
+bool setNumerics(Dataset* dataset, int col, float* value) {
+    if (col > 0 && col < dataset->nColumns) {
         PreprocessorType type = dataset->preprocessors[col].type;
 
         if (type == NUMERIC) {
             NumericInputs* inputs = dataset->numericInputs;
-            int start = computeOffset(inputs, 0, col);
-            int end = computeOffset(inputs, dataset->nRows, col);
+            int start = computeNumericOffset(inputs, 0, col);
+            int end = computeNumericOffset(inputs, dataset->nRows, col);
 
             for (int i = start; i < end; i++) inputs->data[i] = value[i];
+            return true;
         }
         else return false;
     }
-    else return false
+    else return false;
 }
 
-bool set(Dataset* dataset, int col, char** value) {
-    if (col > 0 && col < dataset->nCols) {
+bool setStrings(Dataset* dataset, int col, char** value) {
+    if (col > 0 && col < dataset->nColumns) {
         PreprocessorType type = dataset->preprocessors[col].type;
 
         if (type == CATEGORICAL || type == IMAGE) {
             StringInputs* inputs = dataset->stringInputs;
-            int start = computeOffset(inputs, 0, col);
-            int end = computeOffset(inputs, dataset->nRows, col);
+            int start = computeStringOffset(inputs, 0, col);
+            int end = computeStringOffset(inputs, dataset->nRows, col);
 
             for (int i = start; i < end; i++) inputs->data[i] = value[i];
+            return true;
         }
         else return false;
     }
-    else return false
+    else return false;
 }

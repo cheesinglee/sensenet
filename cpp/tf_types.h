@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <tensorflow/c/c_api.h>
 
 int dataLength(int64_t* dims, int nDims) {
     if (nDims > 0) {
@@ -35,7 +36,7 @@ void deleteModel(Model* model) {
     if (model->feeds != NULL) free(model->feeds);
     if (model->fetches != NULL) free(model->fetches);
 
-    free(model)
+    free(model);
 }
 
 typedef struct ModelNumericOutputs {
@@ -60,8 +61,8 @@ typedef struct ModelNumericInputs {
     int64_t* dims;
 } NumericInputs;
 
-NumericInputs createNumericInputs(float* data, int nDims, int64_t* dims) {
-    NumericInputs* input = malloc(sizeof(NumericInput));
+NumericInputs* createNumericInputs(float* data, int nDims, int64_t* dims) {
+    NumericInputs* input = malloc(sizeof(NumericInputs));
 
     input->data = data;
     input->nDims = nDims;
@@ -81,6 +82,12 @@ typedef struct ModelStringInputs {
     int nDims;
     int64_t* dims;
 } StringInputs;
+
+StringInputs* createStringInputs(char** data, int nDims, int64_t* dims) {
+    StringInputs* input = malloc(sizeof(StringInputs));
+    return NULL;
+    // TODO: Actually do this
+}
 
 void deleteStringInputs(StringInputs* input) {
     if (input->nDims > 0) {
