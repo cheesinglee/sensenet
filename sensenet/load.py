@@ -4,12 +4,6 @@ tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import NUMERIC, CATEGORICAL, IMAGE_PATH
 
-def get_index(alist, value):
-    try:
-        return alist.index(value)
-    except ValueError:
-        return -1
-
 def load_points(model, points):
     preprocessors = model['preprocess']
 
