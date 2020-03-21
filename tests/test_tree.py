@@ -126,7 +126,3 @@ def test_predictions():
     mod_preds = model(points).numpy()
 
     assert mod_preds.shape == sk_preds.shape
-
-    # for i, ps in enumerate(zip(sk_preds, mod_preds)):
-    #     if not np.allclose(ps[0], ps[1]):
-    #         print(i, ps[0] - ps[1])
