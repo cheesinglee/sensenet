@@ -11,7 +11,11 @@ from sensenet.layers.utils import initializer_map, activation_function
 
 def dense(params):
     imap = initializer_map(params)
-    units = len(params['weights'][0])
+
+    if isinstance(params['weights'], str):
+        units = int(params['nodes'])
+    else:
+        units = len(params['weights'][0])
 
     return kl.Dense(units,
                     dtype=tf.float32,

@@ -14,25 +14,19 @@ with open(path.join(here, 'README.md'), 'r') as f:
 
 setup(
     name='sensenet',
-    version=version,
+    version=__version__,
     author = 'BigML Team',
     author_email = 'team@bigml.com',
     url = 'http://bigml.com/',
-    description='Network builder for laminar topologies',
+    description='Network builder for deepnet topologies',
     long_description=long_description,
     packages=find_packages(),
     tests_require=[
-        'nose>=1.3, 1.4',
+        'nose>=1.3,<1.4',
         'pillow>=6.1,<6.2'
     ],
     test_suite='nose.collector',
     install_requires=[
         'numpy>=1.17.2,<1.18',
         'tensorflow>=2.1,<2.2',
-        'keras>=2.3,<2.4'
-    ],
-    entry_points={
-        'console_scripts': [
-            'sensenet_write = sensenet.command_line:main'
-        ]
-    })
+    ])

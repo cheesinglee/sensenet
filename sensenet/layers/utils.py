@@ -25,10 +25,10 @@ WEIGHT_PARAMETERS = [
     'point_kernel'
 ]
 
-INITIALIZERS = [
+INITIALIZERS = {
     'glorot_uniform': tf.initializers.glorot_uniform,
     'glorot_normal': tf.initializers.glorot_normal
-]
+}
 
 def log_summary(x, msg):
     def summary_function(x):
@@ -58,8 +58,8 @@ def initializer_map(params):
                 imap[k] = weights
             else:
                 random_seed = params['seed']
-                imap[k] = INITIAlIZERS[k](seed=random_seed)
-        if weights is not None:
+                imap[k] = INITIALIZERS[weights](seed=random_seed)
+        elif weights is not None:
             weight_array = np.array(weights, dtype=np.float32)
             imap[k] = tf.constant_initializer(weight_array)
         else:

@@ -5,12 +5,34 @@ kl = sensenet.importers.import_keras_layers()
 
 from sensenet.layers.utils import initializer_map, activation_function
 
-def conv_2d(params):
-    kernel = np.array(params['kernel'])
-    imap = initializer_map(params)
+def get_shape_params(params):
+    if 'kernel' in params:
+        point_shape = depth_shape = np.array(params['kernel']).shape
+    elif 'depth_kernel' in params:
+        point_shape = np.array(params['point_kernel']).shape
+        depth_shape = np.array(params['depth_kernel']).shape
+    else:
+        point_shape = depth_shape = None
 
-    return kl.Conv2D(filters=kernel.shape[3],
-                     kernel_size=kernel.shape[:2],
+    if depth_shape:
+        kernel_dimension = depth_shape[:2]
+
+        if point_shape and len(point_shape) > 3:
+            nfilters = point_shape[3]
+        else:
+            nfilters = None
+    else:
+        nfilters = int(params['number_of_filters'])
+        kernel_dimension = tuple(params['kernel_dimensions'])
+
+    return nfilters, kernel_dimension
+
+def conv_2d(params):
+    imap = initializer_map(params)
+    nfilters, kernel_dimensions = get_shape_params(params)
+
+    return kl.Conv2D(filters=nfilters,
+                     kernel_size=kernel_dimensions,
                      dtype=tf.float32,
                      strides=params['strides'],
                      padding=params['padding'],
@@ -21,12 +43,11 @@ def conv_2d(params):
 
 
 def separable_conv_2d(params):
-    depth_shape = np.array(params['depth_kernel']).shape
-    point_shape = np.array(params['point_kernel']).shape
     imap = initializer_map(params)
+    nfilters, kernel_dimensions = get_shape_params(params)
 
-    return kl.SeparableConv2D(filters=point_shape[3],
-                              kernel_size=depth_shape[:2],
+    return kl.SeparableConv2D(filters=nfilters,
+                              kernel_size=kernel_dimensions,
                               dtype=tf.float32,
                               strides=params['strides'],
                               padding=params['padding'],
@@ -38,10 +59,10 @@ def separable_conv_2d(params):
                               bias_initializer=imap['bias'])
 
 def depthwise_conv_2d(params):
-    kernel = np.array(params['kernel'])
     imap = initializer_map(params)
+    nfilters, kernel_dimensions = get_shape_params(params)
 
-    return kl.DepthwiseConv2D(kernel_size=kernel.shape[:2],
+    return kl.DepthwiseConv2D(kernel_size=kernel_dimensions,
                               strides=params['strides'],
                               dtype=tf.float32,
                               padding=params['padding'],
