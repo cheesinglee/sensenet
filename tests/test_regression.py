@@ -11,6 +11,7 @@ from sensenet.load import load_points
 from sensenet.preprocess.preprocessor import Preprocessor
 from sensenet.layers.tree import ForestPreprocessor
 from sensenet.models.deepnet import deepnet_model
+from sensenet.io.save import assets_for_deepnet, write_model
 
 TEST_DATA_DIR = 'tests/data/'
 
@@ -64,6 +65,9 @@ def test_legacy_networks():
 
     for i in range(len(rdata)):
         yield single_artifact, LEGACY, i
+
+def test_one():
+    single_artifact(SIMPLE, 0)
 
 def fake_outex(test_info):
     anode = test_info['trees'][0][1][0]

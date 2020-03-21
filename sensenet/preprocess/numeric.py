@@ -6,7 +6,7 @@ from sensenet.layers.utils import constant
 class NumericPreprocessor(tf.keras.layers.Layer):
     def __init__(self, preprocessor):
         super(NumericPreprocessor, self).__init__()
-        self._moments = [preprocessor['mean'], preprocessor['stdev']]
+        self._moments = [preprocessor[MEAN], preprocessor[STANDARD_DEVIATION]]
 
         # This should only happen if the feature had a constant value
         # in training
@@ -24,7 +24,7 @@ class NumericPreprocessor(tf.keras.layers.Layer):
 class BinaryPreprocessor(tf.keras.layers.Layer):
     def __init__(self, preprocessor):
         super(BinaryPreprocessor, self).__init__()
-        self._values = [preprocessor['zero_value'], preprocessor['one_value']]
+        self._values = [preprocessor[ZERO], preprocessor[ONE]]
 
     def build(self, input_shape):
         self._zero_value = constant(self._values[0])

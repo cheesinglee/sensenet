@@ -5,6 +5,12 @@ IMAGE_PATH = 'image'
 TRIPLET = 'triplet'
 BOUNDING_BOX = 'bounding_box'
 
+# Keys for numeric preprocessors
+MEAN = 'mean'
+STANDARD_DEVIATION = 'stdev'
+ZERO = 'zero_value'
+ONE = 'one_value'
+
 # Constants for the scaled linear units
 SELU_ALPHA = 1.6732632423543772848170429916717;
 SELU_SCALE = 1.0507009873554804934193349852946;
