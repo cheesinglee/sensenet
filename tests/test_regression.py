@@ -1,5 +1,3 @@
-import json
-import gzip
 import os
 
 import sensenet.importers
@@ -13,7 +11,7 @@ from sensenet.layers.tree import ForestPreprocessor
 from sensenet.models.deepnet import deepnet_model
 from sensenet.io.save import assets_for_deepnet, write_model
 
-TEST_DATA_DIR = 'tests/data/'
+from .utils import TEST_DATA_DIR, read_regression
 
 EMBEDDING = 'embedding.json.gz'
 SIMPLE = 'regression.json.gz'
@@ -23,10 +21,6 @@ LEGACY_SEARCH = 'legacy_search_regression.json.gz'
 IMAGE = 'image_regression.json.gz'
 
 EXTRA_PARAMS = {'path_prefix': TEST_DATA_DIR + 'images/digits/'}
-
-def read_regression(path):
-    with gzip.open(os.path.join(TEST_DATA_DIR, path), "rb") as fin:
-        return json.loads(fin.read().decode('utf-8'))
 
 def validate_predictions(test_artifact):
     test_model, test_points = [test_artifact[k] for k in ['model', 'validation']]

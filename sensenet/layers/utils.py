@@ -12,18 +12,18 @@ ACTIVATORS = {
 }
 
 # The names of the trainable parameters in any layer
-WEIGHT_PARAMETERS = [
-    'weights',
-    'offset',
-    'gamma',
-    'beta',
-    'mean',
-    'variance',
-    'kernel',
-    'bias',
-    'depth_kernel',
-    'point_kernel'
-]
+WEIGHT_INITIALIZERS = {
+    'weights': 'glorot_uniform',
+    'offset': 'zeros',
+    'gamma': 'ones',
+    'beta': 'zeros',
+    'mean': 'zeros',
+    'variance': 'ones',
+    'kernel': 'glorot_uniform',
+    'bias': 'zeros',
+    'depth_kernel': 'glorot_uniform',
+    'point_kernel': 'glorot_uniform'
+}
 
 INITIALIZERS = {
     'glorot_uniform': tf.initializers.glorot_uniform,
@@ -50,7 +50,7 @@ def activation_function(params):
 def initializer_map(params):
     imap = {}
 
-    for k in WEIGHT_PARAMETERS:
+    for k in WEIGHT_INITIALIZERS:
         weights = params.get(k, None)
 
         if isinstance(weights, str):

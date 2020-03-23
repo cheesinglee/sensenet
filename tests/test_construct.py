@@ -3,21 +3,17 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 kl = sensenet.importers.import_keras_layers()
 
-from sensenet.layers.utils import propagate
 from sensenet.layers.construct import layer_sequence
 from sensenet.layers.block import BlockLayer
 
-def make_model(lseq, ninputs):
-    inputs = tf.keras.Input((ninputs,), dtype=tf.float32)
-    outputs = propagate(lseq, inputs)
-    return tf.keras.Model(inputs=inputs, outputs=outputs)
+from .utils import make_model
 
 def test_create_simple():
     network = {
         'layers': [
             {
                 'type': 'dense',
-                'nodes': 8,
+                'number_of_nodes': 8,
                 'seed': 42,
                 'activation_function': 'leaky_relu',
                 'weights': 'glorot_uniform',
@@ -25,7 +21,7 @@ def test_create_simple():
             },
             {
                 'type': 'dense',
-                'nodes': 16,
+                'number_of_nodes': 16,
                 'seed': 43,
                 'activation_function': 'softmax',
                 'weights': 'glorot_normal',
@@ -60,7 +56,7 @@ def test_create_residual():
         'layers': [
             {
                 'type': 'dense',
-                'nodes': 6,
+                'number_of_nodes': 6,
                 'seed': 42,
                 'activation_function': 'leaky_relu',
                 'weights': 'glorot_uniform',
@@ -73,7 +69,7 @@ def test_create_residual():
                 'dense_path': [
                     {
                         'type': 'dense',
-                        'nodes': 6,
+                        'number_of_nodes': 6,
                         'seed': 42,
                         'activation_function': None,
                         'weights': 'glorot_uniform',
@@ -92,7 +88,7 @@ def test_create_residual():
                     },
                     {
                         'type': 'dense',
-                        'nodes': 6,
+                        'number_of_nodes': 6,
                         'seed': 42,
                         'activation_function': None,
                         'weights': 'glorot_uniform',
@@ -113,7 +109,7 @@ def test_create_residual():
             },
             {
                 'type': 'dense',
-                'nodes': 4,
+                'number_of_nodes': 4,
                 'seed': 42,
                 'activation_function': 'softmax',
                 'weights': 'glorot_uniform',

@@ -9,15 +9,16 @@ kl = sensenet.importers.import_keras_layers()
 
 from sensenet.layers.utils import initializer_map, activation_function
 
+def get_units(params):
+    if isinstance(params['weights'], str):
+        return int(params['number_of_nodes'])
+    else:
+        return len(params['weights'][0])
+
 def dense(params):
     imap = initializer_map(params)
 
-    if isinstance(params['weights'], str):
-        units = int(params['nodes'])
-    else:
-        units = len(params['weights'][0])
-
-    return kl.Dense(units,
+    return kl.Dense(get_units(params),
                     dtype=tf.float32,
                     activation=activation_function(params),
                     use_bias=True,
@@ -37,12 +38,12 @@ def batchnorm(params):
 
 def dropout(params):
     dtype = params['dropout_type']
-    rate = params['dropout_rate']
+    rate = params['rate']
 
     if dtype == 'zero':
-        return kl.Dropout(rate, seed=42)
+        return kl.Dropout(rate=rate, seed=42)
     elif dtype == 'alpha':
-        return kl.AlphaDropout(rate, seed=42)
+        return kl.AlphaDropout(rate=rate, seed=42)
     else:
         raise ValueError('"%s" is not a valid dropout type!' % dtype)
 
