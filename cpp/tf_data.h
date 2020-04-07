@@ -2,43 +2,15 @@
 
 #include "tf_model.h"
 
-typedef enum PreprocessorType {
-    NUMERIC = 0,
-    CATEGORICAL = 1,
-    IMAGE = 2,
-    TEXT = 3,
-} PreprocessorType;
-
-typedef struct Preprocessor {
-    PreprocessorType type;
-    int nValues;
-    char** values;
-} Preprocessor;
-
-Preprocessor* createPreprocessors(char* jsonSpec) {
-    // TODO: Actually do this
-    return NULL;
-}
-
-void deletePreprocessors(Preprocessor* preprocessors, int nPreprocessors) {
-    for (int i = 0; i < nPreprocessors; i++) {
-        Preprocessor proc = preprocessors[i];
-        if (proc.type == CATEGORICAL)
-            deleteStringArray(proc.values, proc.nValues);
-    }
-
-    free(preprocessors);
-}
-
 typedef struct Dataset {
     int nColumns;
     int nRows;
-    Preprocessor* preprocessors;
+    DataType* types;
     NumericInputs* numericInputs;
     StringInputs* stringInputs;
 } Dataset;
 
-Dataset* createDataset(int nRows, int nColumns, Preprocessor* procs) {
+Dataset* createDataset(int nRows, int nColumns, DataType* procs) {
     Dataset* dataset = malloc(sizeof(Dataset));
     dataset->nColumns = nColumns;
     dataset->nRows = nRows;
@@ -90,7 +62,9 @@ int computeStringOffset(StringInputs* inputs, int row, int col) {
 
 bool setNumeric(Dataset* dataset, int row, int col, float value) {
     if (row > 0 && col > 0 && row < dataset->nRows && col < dataset->nColumns) {
-        if (dataset->preprocessors[col].type == NUMERIC) {
+        DataType type = dataset->types[col];
+
+        if (type == NUMERIC) {
             NumericInputs* inputs = dataset->numericInputs;
             int offset = computeNumericOffset(inputs, row, col);
             dataset->numericInputs->data[offset] = value;
@@ -104,7 +78,7 @@ bool setNumeric(Dataset* dataset, int row, int col, float value) {
 
 bool setString(Dataset* dataset, int row, int col, char* value) {
     if (row > 0 && col > 0 && row < dataset->nRows && col < dataset->nColumns) {
-        PreprocessorType type = dataset->preprocessors[col].type;
+        DataType type = dataset->types[col];
 
         if (type == CATEGORICAL || type == IMAGE) {
             StringInputs* inputs = dataset->stringInputs;
@@ -120,7 +94,7 @@ bool setString(Dataset* dataset, int row, int col, char* value) {
 
 bool setNumerics(Dataset* dataset, int col, float* value) {
     if (col > 0 && col < dataset->nColumns) {
-        PreprocessorType type = dataset->preprocessors[col].type;
+        DataType type = dataset->types[col];
 
         if (type == NUMERIC) {
             NumericInputs* inputs = dataset->numericInputs;
@@ -137,7 +111,7 @@ bool setNumerics(Dataset* dataset, int col, float* value) {
 
 bool setStrings(Dataset* dataset, int col, char** value) {
     if (col > 0 && col < dataset->nColumns) {
-        PreprocessorType type = dataset->preprocessors[col].type;
+        DataType type = dataset->types[col];
 
         if (type == CATEGORICAL || type == IMAGE) {
             StringInputs* inputs = dataset->stringInputs;

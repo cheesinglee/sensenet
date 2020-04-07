@@ -16,11 +16,24 @@ void deleteStringArray(char** strings, int nStrings) {
         if (strings[i] != NULL) free(strings[i]);
 }
 
+typedef enum DataType {
+    NUMERIC = 0,
+    CATEGORICAL = 1,
+    IMAGE = 2,
+    TEXT = 3,
+} DataType;
+
+DataType* createDataTypes(const char* filePath) {
+    // TODO: Actually do this
+    return NULL;
+}
+
 typedef struct ModelSummary {
     TF_Session* session;
     TF_Graph* graph;
     TF_Output* feeds;
     TF_Output* fetches;
+    DataType* inputTypes;
     int numericInputs;
     int stringInputs;
     int totalInputs;
@@ -35,6 +48,7 @@ void deleteModel(Model* model) {
 
     if (model->feeds != NULL) free(model->feeds);
     if (model->fetches != NULL) free(model->fetches);
+    if (model->inputTypes != NULL) free(model->inputTypes);
 
     free(model);
 }
