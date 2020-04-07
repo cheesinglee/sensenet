@@ -8,8 +8,6 @@ tf = sensenet.importers.import_tensorflow()
 from sensenet.constants import CATEGORICAL, IMAGE_PATH, BOUNDING_BOX
 
 from sensenet.load import load_points
-# from sensenet.pretrained import complete_image_network, cnn_resource_path
-# from sensenet.pretrained import get_pretrained_network, get_pretrained_readout
 from sensenet.pretrained import get_image_network, load_pretrained_weights
 from sensenet.models.deepnet import deepnet_model
 from sensenet.models.bounding_box import box_detector

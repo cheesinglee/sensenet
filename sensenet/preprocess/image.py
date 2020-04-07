@@ -2,7 +2,6 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import IMAGE_STANDARDIZERS
-from sensenet.pretrained import complete_image_network
 from sensenet.layers.utils import constant, propagate
 from sensenet.layers.construct import layer_sequence
 
@@ -82,11 +81,9 @@ class ImagePreprocessor(tf.keras.layers.Layer):
     def __init__(self, image_network, extras):
         super(ImagePreprocessor, self).__init__()
 
-        network = complete_image_network(image_network)
-
-        self._reader = ImageReader(network, extras)
-        self._loader = ImageLoader(network)
-        self._image_layers = layer_sequence(network)
+        self._reader = ImageReader(image_network, extras)
+        self._loader = ImageLoader(image_network)
+        self._image_layers = layer_sequence(image_network)
 
     def call(self, inputs):
         raw_images = self._reader(inputs)

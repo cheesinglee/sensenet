@@ -1,6 +1,7 @@
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
+from sensenet.constants import MEAN, STANDARD_DEVIATION, ZERO, ONE
 from sensenet.layers.utils import constant
 
 class NumericPreprocessor(tf.keras.layers.Layer):

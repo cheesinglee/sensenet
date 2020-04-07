@@ -6,7 +6,6 @@ kl = sensenet.importers.import_keras_layers()
 from sensenet.constants import MAX_BOUNDING_BOXES, MASKS
 from sensenet.constants import IGNORE_THRESHOLD, IOU_THRESHOLD
 from sensenet.accessors import number_of_classes, get_anchors
-from sensenet.pretrained import complete_image_network
 from sensenet.layers.construct import layer_sequence
 from sensenet.layers.utils import constant, shape
 from sensenet.preprocess.image import ImageReader, ImageLoader
@@ -122,7 +121,7 @@ class BoxLocator(tf.keras.layers.Layer):
                 tf.expand_dims(tf.concat(classes_, 0), 0, name='classes'))
 
 def box_detector(model, extras):
-    network = complete_image_network(model['image_network'])
+    network = model['image_network']
     image_input = kl.Input((1,), dtype=tf.string, name='image')
 
     reader = ImageReader(network, extras)
