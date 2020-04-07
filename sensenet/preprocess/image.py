@@ -11,11 +11,10 @@ class ImageReader(tf.keras.layers.Layer):
         super(ImageReader, self).__init__()
 
         ishape = network['metadata']['input_image_shape']
-        self._input_shape = [None, ishape[1], ishape[0], ishape[2]]
 
-        if extras:
-            self._path_prefix = extras.get('path_prefix', None)
-            self._input_format = extras.get('input_image_format', 'file')
+        self._input_shape = [None, ishape[1], ishape[0], ishape[2]]
+        self._path_prefix = extras.get('path_prefix', None)
+        self._input_format = extras.get('input_image_format', 'file')
 
     def build(self, input_shape):
         dims = tf.constant(self._input_shape[1:3], tf.int32)

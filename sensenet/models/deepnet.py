@@ -30,9 +30,12 @@ def deepnet_model(model, extras):
     if 'networks' in model:
         all_layer_sequences = [layer_sequence(net) for net in model['networks']]
         use_trees = [net['trees'] for net in model['networks']]
-    else:
+    elif model['layers']:
         all_layer_sequences = [layer_sequence(model)]
         use_trees = [trees is not None]
+    else:
+        all_layer_sequences = [[]]
+        use_trees = [False]
 
     raw_inputs = instantiate_inputs(model)
     inputs = preprocessor(raw_inputs)

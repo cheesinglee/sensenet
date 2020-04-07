@@ -7,12 +7,9 @@ from sensenet.constants import MAX_BOUNDING_BOXES, MASKS
 from sensenet.constants import IGNORE_THRESHOLD, IOU_THRESHOLD
 from sensenet.accessors import number_of_classes, get_anchors
 from sensenet.pretrained import complete_image_network
-from sensenet.layers.construct import LAYER_FUNCTIONS
-from sensenet.layers.utils import constant, propagate, make_sequence
+from sensenet.layers.construct import layer_sequence
+from sensenet.layers.utils import constant, shape
 from sensenet.preprocess.image import ImageReader, ImageLoader
-
-def shape(tensor):
-    return np.array(tensor.get_shape().as_list(), dtype=np.float32)
 
 def branch_head(feats, anchors, num_classes, input_shape, calc_loss):
     nas = len(anchors)
@@ -45,47 +42,6 @@ def branch_head(feats, anchors, num_classes, input_shape, calc_loss):
         return grid, feats, box_xy, box_wh
     else:
         return box_xy, box_wh, box_confidence, box_class_probs
-
-
-class YoloTail(tf.keras.layers.Layer):
-    def __init__(self, network):
-        super(YoloTail, self).__init__()
-
-        self._trunk = []
-        self._branches = []
-        self._concatenations = {}
-
-        for i, layer in enumerate(network['layers'][:-1]):
-            ltype = layer['type']
-            self._trunk.append(LAYER_FUNCTIONS[ltype](layer))
-
-            if ltype == 'concatenate':
-                self._concatenations[i] = layer['inputs']
-
-        assert network['layers'][-1]['type'] == 'yolo_output_branches'
-        out_branches = network['layers'][-1]
-
-        for i, branch in enumerate(out_branches['output_branches']):
-            idx = branch['input']
-            layers = make_sequence(branch['convolution_path'], LAYER_FUNCTIONS)
-
-            self._branches.append((idx, layers))
-
-    def call(self, inputs):
-        outputs = []
-        next_inputs = inputs
-
-        for i, layer in enumerate(self._trunk):
-            if i in self._concatenations:
-                inputs = self._concatenations[i]
-                next_inputs = layer([outputs[j] for j in inputs])
-            else:
-                next_inputs = layer(next_inputs)
-
-            outputs.append(next_inputs)
-
-        return [propagate(layers, outputs[i]) for i, layers in self._branches]
-
 
 class BoxLocator(tf.keras.layers.Layer):
     def __init__(self, network, nclasses, extras):
@@ -171,7 +127,7 @@ def box_detector(model, extras):
 
     reader = ImageReader(network, extras)
     loader = ImageLoader(network)
-    yolo_tail = YoloTail(network)
+    yolo_tail = layer_sequence(network)
     locator = BoxLocator(network, number_of_classes(model), extras)
 
     raw_image = reader(image_input[:,0])

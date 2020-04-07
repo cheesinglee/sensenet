@@ -15,7 +15,7 @@ def get_shape_params(params):
         point_shape = depth_shape = None
 
     if depth_shape:
-        kernel_dimension = depth_shape[:2]
+        kernel_dimensions = depth_shape[:2]
 
         if point_shape and len(point_shape) > 3:
             nfilters = point_shape[3]
@@ -23,9 +23,9 @@ def get_shape_params(params):
             nfilters = None
     else:
         nfilters = int(params['number_of_filters'])
-        kernel_dimension = tuple(params['kernel_dimensions'])
+        kernel_dimensions = tuple(params['kernel_dimensions'])
 
-    return nfilters, kernel_dimension
+    return nfilters, kernel_dimensions
 
 def conv_2d(params):
     imap = initializer_map(params)
@@ -70,7 +70,7 @@ def depthwise_conv_2d(params):
                               depth_multiplier=params['depth_multiplier'],
                               activation=activation_function(params),
                               depthwise_initializer=imap['kernel'],
-                              bias_initializer=None)
+                              bias_initializer=imap['bias'])
 
 CONVOLUTIONAL_LAYERS = {
     "convolution_2d": conv_2d,

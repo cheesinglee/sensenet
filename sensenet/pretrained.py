@@ -6,6 +6,8 @@ import requests
 from sensenet.constants import ANCHORS
 
 USER_HOME = os.path.expanduser('~')
+# CACHE_DIRECTORY = os.path.join(USER_HOME, '.bigml_sensenet')
+# CNN_METADATA_FILE = 'sensenet_metadata.json'
 CACHE_DIRECTORY = os.path.join(USER_HOME, '.bigml_mimir')
 CNN_METADATA_FILE = 'cnn_metadata.json'
 
@@ -33,6 +35,16 @@ def cache_resource_path(resource_name):
 
 with open(cache_resource_path(CNN_METADATA_FILE), 'r') as fin:
     PRETRAINED_CNN_METADATA = json.load(fin)
+
+def get_image_network(network_name):
+    return PRETRAINED_CNN_METADATA[network_name]
+
+def load_pretrained_weights(model, network):
+    metadata = network['metadata']
+    network_path = metadata['base_image_network'] + '_' + metadata['version']
+    archive = cache_resource_path(network_path + '.h5')
+
+    model.load_weights(archive)
 
 def get_pretrained_network(network_name):
     return {

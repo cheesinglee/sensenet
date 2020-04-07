@@ -97,3 +97,6 @@ def constant(value, datatype=tf.float32):
 def transpose(amatrix):
     arr = np.array(amatrix)
     return np.transpose(arr).tolist()
+
+def shape(tensor):
+    return np.array(tensor.get_shape().as_list(), dtype=np.float32)
