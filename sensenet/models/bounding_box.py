@@ -9,6 +9,7 @@ from sensenet.accessors import number_of_classes, get_anchors
 from sensenet.layers.construct import layer_sequence
 from sensenet.layers.utils import constant, shape
 from sensenet.preprocess.image import ImageReader, ImageLoader
+from sensenet.pretrained import load_pretrained_weights
 
 def branch_head(feats, anchors, num_classes, input_shape, calc_loss):
     nas = len(anchors)
@@ -43,12 +44,12 @@ def branch_head(feats, anchors, num_classes, input_shape, calc_loss):
         return box_xy, box_wh, box_confidence, box_class_probs
 
 class BoxLocator(tf.keras.layers.Layer):
-    def __init__(self, network, nclasses, extras):
+    def __init__(self, network, nclasses, settings):
         super(BoxLocator, self).__init__()
 
         self._nclasses = nclasses
-        self._threshold = extras.get('bounding_box_threshold', IGNORE_THRESHOLD)
-        self._iou_threshold = extras.get('iou_threshold', IOU_THRESHOLD)
+        self._threshold = settings.bounding_box_threshold or IGNORE_THRESHOLD
+        self._iou_threshold = settings.iou_threshold or IOU_THRESHOLD
         self._anchors = get_anchors(network)
 
     def correct_boxes(self, box_xy, box_wh, input_shape):
@@ -120,19 +121,24 @@ class BoxLocator(tf.keras.layers.Layer):
                 tf.expand_dims(tf.concat(scores_, 0), 0, name='scores'),
                 tf.expand_dims(tf.concat(classes_, 0), 0, name='classes'))
 
-def box_detector(model, extras):
+def box_detector(model, settings):
     network = model['image_network']
     image_input = kl.Input((1,), dtype=tf.string, name='image')
 
-    reader = ImageReader(network, extras)
+    reader = ImageReader(network, settings)
     loader = ImageLoader(network)
     yolo_tail = layer_sequence(network)
-    locator = BoxLocator(network, number_of_classes(model), extras)
+    locator = BoxLocator(network, number_of_classes(model), settings)
 
     raw_image = reader(image_input[:,0])
     image = loader(raw_image)
     features = yolo_tail(image)
 
-    boxes, scores, classes = locator(features)
+    # Boxes, scores, and classes
+    all_outputs = locator(features)
+    keras_model = tf.keras.Model(inputs=image_input, outputs=all_outputs)
 
-    return tf.keras.Model(inputs=image_input, outputs=[boxes, scores, classes])
+    if settings.load_pretrained_weights:
+        load_pretrained_weights(keras_model, model['image_network'])
+
+    return keras_model

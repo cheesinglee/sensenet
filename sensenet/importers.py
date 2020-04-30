@@ -2,33 +2,21 @@
 various messages on import.
 
 """
-import sys
-import os
 import logging
 import warnings
 
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
-
-from contextlib import contextmanager
-
-@contextmanager
-def suppress_stderr():
-    with open(os.devnull, 'w') as devnull:
-        old_stderr = sys.stderr
-        sys.stderr = devnull
-        try:
-            yield
-        finally:
-            sys.stderr = old_stderr
-
-with warnings.catch_warnings():
-    warnings.filterwarnings('ignore', message='.*as a synonym of type.*')
-    import tensorflow
-    import tensorflow.keras.layers
+warnings.filterwarnings('ignore', message='.*binary incompatibility.*')
 
 with warnings.catch_warnings():
     warnings.filterwarnings('ignore', message='.*binary incompatibility.*')
     import numpy
+
+with warnings.catch_warnings():
+    warnings.filterwarnings('ignore', message='.*as a synonym of type.*')
+    warnings.filterwarnings('ignore', message='.*binary incompatibility.*')
+    import tensorflow
+    import tensorflow.keras.layers
 
 def import_tensorflow():
     return tensorflow

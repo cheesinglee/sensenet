@@ -9,6 +9,7 @@ from sensenet.load import load_points
 from sensenet.preprocess.preprocessor import Preprocessor
 from sensenet.layers.tree import ForestPreprocessor
 from sensenet.models.deepnet import deepnet_model
+from sensenet.models.settings import Settings
 from sensenet.io.save import assets_for_deepnet, write_model
 
 from .utils import TEST_DATA_DIR, read_regression
@@ -20,7 +21,7 @@ SEARCH = 'search_regression.json.gz'
 LEGACY_SEARCH = 'legacy_search_regression.json.gz'
 IMAGE = 'image_regression.json.gz'
 
-EXTRA_PARAMS = {'path_prefix': TEST_DATA_DIR + 'images/digits/'}
+EXTRA_PARAMS = Settings({'image_path_prefix': TEST_DATA_DIR + 'images/digits/'})
 
 def validate_predictions(test_artifact):
     test_model, test_points = [test_artifact[k] for k in ['model', 'validation']]

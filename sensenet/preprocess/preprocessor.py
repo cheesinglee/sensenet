@@ -36,13 +36,20 @@ class Preprocessor(tf.keras.layers.Layer):
         str_idx = 0
         processed = []
 
-        string_inputs = inputs['string']
-        numeric_inputs = inputs['numeric']
+        try:
+            string_inputs = inputs['string']
+            numeric_inputs = inputs['numeric']
+        except TypeError:
+            string_inputs = None
+            numeric_inputs = inputs
 
         for i, pp in enumerate(self._preprocessors):
             if isinstance(pp, (ImagePreprocessor, CategoricalPreprocessor)):
-                processed.append(pp(string_inputs[:,str_idx]))
-                str_idx += 1
+                if string_inputs is not None:
+                    processed.append(pp(string_inputs[:,str_idx]))
+                    str_idx += 1
+                elif isinstance(pp, ImagePreprocessor):
+                    processed.append(pp(numeric_inputs))
             else:
                 processed.append(pp(numeric_inputs[:,i]))
 

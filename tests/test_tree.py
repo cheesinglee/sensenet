@@ -13,6 +13,8 @@ np = sensenet.importers.import_numpy()
 from sensenet.layers.utils import constant
 from sensenet.layers.tree import DecisionTree, DecisionForest
 
+from .utils import read_zipped_json
+
 def test_simple_tree_prediction():
     test_tree = [
         0,
@@ -69,13 +71,11 @@ def test_simple_tree_prediction():
     assert np.array_equal(preds2, results)
 
 def load_dataset(filename):
-    with open(filename, 'r') as fin:
-        data = json.load(fin)
-
+    data = read_zipped_json(filename)
     rng = random.Random(0)
     rng.shuffle(data)
 
-    X = [p[:-1] for p in data]
+    X = [[float(v) for v in p[:-1]] for p in data]
 
     classes = [p[-1] for p in data]
     cvalues = sorted(set(classes))
@@ -109,7 +109,7 @@ def trees_to_list(ensemble):
     return jensemble
 
 def test_predictions():
-    X, y = load_dataset('tests/data/iris.json')
+    X, y = load_dataset('tests/data/iris.json.gz')
     points = X = X.astype(np.float32)
     ensemble = skens.RandomForestClassifier(n_estimators=32,
                                             n_jobs=-1,
@@ -126,3 +126,8 @@ def test_predictions():
     mod_preds = model(points).numpy()
 
     assert mod_preds.shape == sk_preds.shape
+
+    # Not all of these are going to be right; there are strange floating
+    # point things between scikit and Tensorflow, but it's not
+    # important for this test.
+    assert np.sum(mod_preds == sk_preds) > len(mod_preds.flatten()) * 0.95

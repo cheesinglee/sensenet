@@ -6,44 +6,58 @@ from sensenet.layers.utils import constant, propagate
 from sensenet.layers.construct import layer_sequence
 
 class ImageReader(tf.keras.layers.Layer):
-    def __init__(self, network, extras):
+    def __init__(self, network, settings):
         super(ImageReader, self).__init__()
 
         ishape = network['metadata']['input_image_shape']
 
         self._input_shape = [None, ishape[1], ishape[0], ishape[2]]
-        self._path_prefix = extras.get('path_prefix', None)
-        self._input_format = extras.get('input_image_format', 'file')
+        self._path_prefix = settings.image_path_prefix
+        self._input_format = settings.input_image_format or 'file'
 
-    def build(self, input_shape):
+    def get_reader_fn(self):
         dims = tf.constant(self._input_shape[1:3], tf.int32)
+        input_format = self._input_format
+        prefix = self._path_prefix
         nchannels = self._input_shape[-1]
 
         def read_image(path_or_bytes):
-            if self._input_format == 'file':
-                path = path_or_bytes
-
-                if self._path_prefix:
-                    path = tf.strings.join([self._path_prefix, path])
-
-                img_bytes = tf.io.read_file(path)
+            if input_format == 'pixel_values':
+                raw_image = path_or_bytes
             else:
-                img_bytes = path_or_bytes
+                if input_format == 'file':
+                    path = path_or_bytes
 
-            # Note that, spectacularly weirdly, this method will also
-            # work for pngs and gifs.  Even wierder, We can't use
-            # decode_image here because the tensor that comes out
-            # doesn't have a shape!
-            raw_image = tf.io.decode_jpeg(img_bytes,
-                                          dct_method='INTEGER_ACCURATE',
-                                          channels=nchannels)
+                    if prefix:
+                        path = tf.strings.join([prefix, path])
+
+                    img_bytes = tf.io.read_file(path)
+                else:
+                    img_bytes = path_or_bytes
+
+                # Note that, spectacularly weirdly, this method will also
+                # work for pngs and gifs.  Even wierder, We can't use
+                # decode_image here because the tensor that comes out
+                # doesn't have a shape!
+                raw_image = tf.io.decode_jpeg(img_bytes,
+                                              dct_method='INTEGER_ACCURATE',
+                                              channels=nchannels)
 
             return tf.image.resize(raw_image, dims, method='nearest')
 
-        self._read = read_image
+        return read_image
+
+    def build(self, input_shape):
+        if self._input_format != 'pixel_values':
+            self._read = self.get_reader_fn()
 
     def call(self, inputs):
-        images = tf.map_fn(self._read, inputs, back_prop=False, dtype=tf.uint8)
+        if self._input_format == 'pixel_values':
+            dims = tf.constant(self._input_shape[1:3], tf.int32)
+            images = tf.image.resize(inputs, dims, method='nearest')
+        else:
+            images = tf.map_fn(self._read, inputs, back_prop=False, dtype=tf.uint8)
+
         return tf.cast(images, tf.float32)
 
 class ImageLoader(tf.keras.layers.Layer):
@@ -78,10 +92,10 @@ class ImageLoader(tf.keras.layers.Layer):
         return images
 
 class ImagePreprocessor(tf.keras.layers.Layer):
-    def __init__(self, image_network, extras):
+    def __init__(self, image_network, settings):
         super(ImagePreprocessor, self).__init__()
 
-        self._reader = ImageReader(image_network, extras)
+        self._reader = ImageReader(image_network, settings)
         self._loader = ImageLoader(image_network)
         self._image_layers = layer_sequence(image_network)
 
