@@ -123,14 +123,21 @@ class BoxLocator(tf.keras.layers.Layer):
 
 def box_detector(model, settings):
     network = model['image_network']
-    image_input = kl.Input((1,), dtype=tf.string, name='image')
-
     reader = ImageReader(network, settings)
+
+    if settings.input_image_format == 'pixel_values':
+        ishape = network['metadata']['input_image_shape']
+        input_shape = [None, ishape[1], ishape[0], ishape[2]]
+        image_input = kl.Input(input_shape[1:], dtype=tf.float32, name='image')
+        raw_image = reader(image_input)
+    else:
+        image_input = kl.Input((1,), dtype=tf.string, name='image')
+        raw_image = reader(image_input[:,0])
+
     loader = ImageLoader(network)
     yolo_tail = layer_sequence(network)
     locator = BoxLocator(network, number_of_classes(model), settings)
 
-    raw_image = reader(image_input[:,0])
     image = loader(raw_image)
     features = yolo_tail(image)
 

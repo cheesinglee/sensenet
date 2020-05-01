@@ -1,5 +1,6 @@
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
+kl = sensenet.importers.import_keras_layers()
 
 from sensenet.constants import IMAGE_PATH, NUMERIC, CATEGORICAL
 from sensenet.accessors import get_output_exposition
@@ -16,17 +17,15 @@ def instantiate_inputs(model, settings):
     ncols = len(preprocessors)
     nstrings = ptypes.count(IMAGE_PATH) + ptypes.count(CATEGORICAL)
 
-    Input = tf.keras.Input
-
     if ncols == 1 and settings.input_image_format == 'pixel_values':
         assert ptypes[0] == IMAGE_PATH
 
         shp = model['image_network']['metadata']['input_image_shape']
-        return Input((shp[1], shp[0], shp[2]), dtype=tf.float32, name='image')
+        return kl.Input((shp[1], shp[0], shp[2]), dtype=tf.float32, name='image')
     else:
         return {
-            'numeric': Input((ncols,), dtype=tf.float32, name='numeric'),
-            'string': Input((nstrings,), dtype=tf.string, name='string')
+            'numeric': kl.Input((ncols,), dtype=tf.float32, name='numeric'),
+            'string': kl.Input((nstrings,), dtype=tf.string, name='string')
         }
 
 def apply_layers(model, inputs, treeed_inputs):

@@ -8,7 +8,7 @@ tf = sensenet.importers.import_tensorflow()
 from sensenet.constants import CATEGORICAL, IMAGE_PATH, BOUNDING_BOX
 
 from sensenet.load import load_points
-from sensenet.models.image import pretrained_image_model
+from sensenet.models.image import pretrained_image_model, image_feature_extractor
 from sensenet.preprocess.image import ImageReader
 from sensenet.pretrained import get_image_network
 from sensenet.models.settings import Settings
@@ -18,20 +18,29 @@ EXTRA_PARAMS = {
     'load_pretrained_weights': True
 }
 
-def create_image_model(network_name, bbox_thld=0.5, image_format='file'):
+def create_image_model(network_name, box_threshold, image_format):
     extras = Settings(EXTRA_PARAMS)
     extras.input_image_format = image_format
-    extras.bounding_box_threshold = bbox_thld
+    extras.bounding_box_threshold = box_threshold
 
     return pretrained_image_model(network_name, extras)
 
-def classify(network_name, accuracy_threshold):
+def reader_for_network(network_name):
     network = get_image_network(network_name)
     read_settings = Settings(EXTRA_PARAMS)
-    read = ImageReader(network['image_network'], read_settings).get_reader_fn()
 
-    image_model = create_image_model(network_name)
-    pixel_model = create_image_model(network_name, image_format='pixel_values')
+    return ImageReader(network['image_network'], read_settings).get_reader_fn()
+
+def classify(network_name, accuracy_threshold):
+    network = get_image_network(network_name)
+    noutputs = network['image_network']['metadata']['outputs']
+
+    image_model = create_image_model(network_name, None, 'file')
+    pixel_model = create_image_model(network_name, None, 'pixel_values')
+    read = reader_for_network(network_name)
+
+    image_feature_extractor(pixel_model)
+    ex_mod = image_feature_extractor(image_model)
 
     for image, cidx in [('dog.jpg', 254), ('bus.jpg', 779)]:
         point = load_points(network, [[image]])
@@ -47,6 +56,8 @@ def classify(network_name, accuracy_threshold):
                 else:
                     assert p < 0.02, str((i, p))
 
+    outputs = ex_mod(load_points(network, [['dog.jpg'], ['bus.jpg']]))
+    assert outputs.shape == (2, noutputs)
 
 def test_resnet50():
     classify('resnet50', 0.99)
@@ -64,12 +75,18 @@ def test_mobilenetv2():
     classify('mobilenetv2', 0.88)
 
 def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
-    detector = create_image_model(network_name, bbox_thld=threshold)
+    image_detector = create_image_model(network_name, threshold, 'file')
+    pixel_detector = create_image_model(network_name, threshold, 'pixel_values')
+    read = reader_for_network(network_name)
 
-    boxes, scores, classes = detector.predict([['pizza_people.jpg']])
+    file_pred = image_detector.predict([['pizza_people.jpg']])
+    img_px = np.expand_dims(read('pizza_people.jpg').numpy(), axis=0)
+    pixel_pred = pixel_detector.predict(img_px)
 
-    assert len(boxes[0]) == nboxes
-    assert sorted(set(classes[0])) == sorted(class_list), str(set(classes[0]))
+    for pred in [file_pred, pixel_pred]:
+        boxes, scores, classes = pred
+        assert len(boxes[0]) == nboxes
+        assert sorted(set(classes[0])) == sorted(class_list), str(set(classes[0]))
 
 def test_yolov3():
     detect_bounding_boxes('yolov3', 6, [0, 60, 53], 0.6)
