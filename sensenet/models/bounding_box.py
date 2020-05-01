@@ -136,9 +136,4 @@ def box_detector(model, settings):
 
     # Boxes, scores, and classes
     all_outputs = locator(features)
-    keras_model = tf.keras.Model(inputs=image_input, outputs=all_outputs)
-
-    if settings.load_pretrained_weights:
-        load_pretrained_weights(keras_model, model['image_network'])
-
-    return keras_model
+    return tf.keras.Model(inputs=image_input, outputs=all_outputs)

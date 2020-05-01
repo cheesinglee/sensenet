@@ -75,9 +75,4 @@ def deepnet_model(model, settings):
         treeed_inputs = None
 
     predictions = apply_layers(model, inputs, treeed_inputs)
-    keras_model = tf.keras.Model(inputs=raw_inputs, outputs=predictions)
-
-    if settings.load_pretrained_weights:
-        load_pretrained_weights(keras_model, model['image_network'])
-
-    return keras_model
+    return tf.keras.Model(inputs=raw_inputs, outputs=predictions)

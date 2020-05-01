@@ -23,11 +23,3 @@ def make_model(lseq, input_shape):
     inputs = tf.keras.Input(input_shape, dtype=tf.float32)
     outputs = propagate(lseq, inputs)
     return tf.keras.Model(inputs=inputs, outputs=outputs)
-
-def image_model(network):
-    name = network['image_network']['metadata']['base_image_network']
-
-    if 'yolo' in name:
-        return box_detector(network, {})
-    else:
-        return deepnet_model(network, {})
