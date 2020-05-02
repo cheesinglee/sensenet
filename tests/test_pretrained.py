@@ -19,10 +19,11 @@ EXTRA_PARAMS = {
 }
 
 def create_image_model(network_name, box_threshold, image_format):
-    extras = Settings(EXTRA_PARAMS)
-    extras.input_image_format = image_format
-    extras.bounding_box_threshold = box_threshold
+    extras = dict(EXTRA_PARAMS)
+    extras['input_image_format'] = image_format
+    extras['bounding_box_threshold'] = box_threshold
 
+    extras = Settings(extras) if box_threshold else extras
     return pretrained_image_model(network_name, extras)
 
 def reader_for_network(network_name):

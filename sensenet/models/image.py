@@ -3,10 +3,13 @@ tf = sensenet.importers.import_tensorflow()
 
 from sensenet.models.bounding_box import box_detector
 from sensenet.models.deepnet import deepnet_model
+from sensenet.models.settings import ensure_settings
 from sensenet.preprocess.preprocessor import Preprocessor
 from sensenet.pretrained import get_image_network, load_pretrained_weights
 
-def image_model(network, settings):
+def image_model(network, input_settings):
+    settings = ensure_settings(input_settings)
+
     if 'yolo' in network['image_network']['metadata']['base_image_network']:
         model = box_detector(network, settings)
     else:

@@ -8,6 +8,7 @@ from sensenet.constants import IGNORE_THRESHOLD, IOU_THRESHOLD
 from sensenet.accessors import number_of_classes, get_anchors
 from sensenet.layers.construct import layer_sequence
 from sensenet.layers.utils import constant, shape
+from sensenet.models.settings import ensure_settings
 from sensenet.preprocess.image import ImageReader, ImageLoader
 from sensenet.pretrained import load_pretrained_weights
 
@@ -121,7 +122,9 @@ class BoxLocator(tf.keras.layers.Layer):
                 tf.expand_dims(tf.concat(scores_, 0), 0, name='scores'),
                 tf.expand_dims(tf.concat(classes_, 0), 0, name='classes'))
 
-def box_detector(model, settings):
+def box_detector(model, input_settings):
+    settings = ensure_settings(input_settings)
+
     network = model['image_network']
     reader = ImageReader(network, settings)
 

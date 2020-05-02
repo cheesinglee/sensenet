@@ -7,6 +7,7 @@ from sensenet.accessors import get_output_exposition
 from sensenet.layers.utils import propagate
 from sensenet.layers.tree import ForestPreprocessor
 from sensenet.layers.construct import layer_sequence, tree_preprocessor
+from sensenet.models.settings import ensure_settings
 from sensenet.preprocess.preprocessor import Preprocessor
 from sensenet.pretrained import load_pretrained_weights
 
@@ -61,7 +62,9 @@ def apply_layers(model, inputs, treeed_inputs):
 
     return predictions
 
-def deepnet_model(model, settings):
+def deepnet_model(model, input_settings):
+    settings = ensure_settings(input_settings)
+
     preprocessor = Preprocessor(model, settings)
     trees = tree_preprocessor(model)
 

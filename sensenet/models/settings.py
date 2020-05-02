@@ -56,3 +56,13 @@ class Settings(object):
             raise AttributeError('"%s" not in settings and is required' % name)
 
         return value
+
+def ensure_settings(avalue):
+    if type(avalue) == Settings:
+        return avalue
+    elif type(avalue) == dict:
+        return Settings(avalue)
+    elif avalue is None:
+        return Settings({})
+    else:
+        raise ValueError('settings input type is "%s"' % type(avalue))
