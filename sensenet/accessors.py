@@ -1,5 +1,25 @@
 from sensenet.constants import NUMERIC, CATEGORICAL, BOUNDING_BOX, MASKS
 
+def get_image_shape(anobject):
+    if type(anobject) == dict:
+        if 'image_network' in anobject:
+            ishape = anobject['image_network']['metadata']['input_image_shape']
+        elif 'metadata' in anobject:
+            ishape = anobject['metadata']['input_image_shape']
+        else:
+            msg = 'Cannot find image shape in dict with keys %s'
+            raise ValueError(msg % str(sorted(anobject.keys())))
+    elif type(anobject) in [list, tuple]:
+        ishape = anobject
+    else:
+        try:
+            ishape = anobject.input_image_shape
+        except AttributeError:
+            msg = 'Cannot find image shape in objective of type "%s"'
+            raise ValueError(msg % type(anobject))
+
+    return [None, ishape[1], ishape[0], ishape[2]]
+
 def get_output_exposition(model):
     if 'output_exposition' in model:
         return model['output_exposition']

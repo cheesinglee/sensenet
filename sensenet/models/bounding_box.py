@@ -5,7 +5,7 @@ kl = sensenet.importers.import_keras_layers()
 
 from sensenet.constants import MAX_BOUNDING_BOXES, MASKS
 from sensenet.constants import IGNORE_THRESHOLD, IOU_THRESHOLD
-from sensenet.accessors import number_of_classes, get_anchors
+from sensenet.accessors import number_of_classes, get_anchors, get_image_shape
 from sensenet.layers.construct import layer_sequence
 from sensenet.layers.utils import constant, shape
 from sensenet.models.settings import ensure_settings
@@ -129,9 +129,8 @@ def box_detector(model, input_settings):
     reader = ImageReader(network, settings)
 
     if settings.input_image_format == 'pixel_values':
-        ishape = network['metadata']['input_image_shape']
-        input_shape = [None, ishape[1], ishape[0], ishape[2]]
-        image_input = kl.Input(input_shape[1:], dtype=tf.float32, name='image')
+        image_shape = get_image_shape(model)
+        image_input = kl.Input(image_shape[1:], dtype=tf.float32, name='image')
         raw_image = reader(image_input)
     else:
         image_input = kl.Input((1,), dtype=tf.string, name='image')

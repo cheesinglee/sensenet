@@ -21,6 +21,10 @@ class Settings(object):
             else:
                 self.__setattr__(key, amap[key])
 
+        for key in sorted(amap.keys()):
+            if key not in ATTRIBUTES:
+                raise AttributeError('"%s" is not a valid field' % key)
+
     def __setattr__(self, name, value):
         if name not in ATTRIBUTES:
             raise AttributeError('"%s" is not a valid field' % name)

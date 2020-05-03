@@ -2,18 +2,15 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import IMAGE_STANDARDIZERS
+from sensenet.accessors import get_image_shape
 from sensenet.layers.utils import constant, propagate
 from sensenet.layers.construct import layer_sequence
-
-
 
 class ImageReader(tf.keras.layers.Layer):
     def __init__(self, network, settings):
         super(ImageReader, self).__init__()
 
-        ishape = network['metadata']['input_image_shape']
-
-        self._input_shape = [None, ishape[1], ishape[0], ishape[2]]
+        self._input_shape = get_image_shape(network)
         self._path_prefix = settings.image_path_prefix
         self._input_format = settings.input_image_format or 'file'
 
