@@ -1,6 +1,7 @@
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
+from sensenet.accessors import get_layer
 from sensenet.models.bounding_box import box_detector
 from sensenet.models.deepnet import deepnet_model
 from sensenet.models.settings import ensure_settings
@@ -24,19 +25,6 @@ def pretrained_image_model(network_name, settings):
     network = get_image_network(network_name)
     return image_model(network, settings)
 
-def get_layer(model, layer_type, names):
-    for layer in model.layers:
-        if type(layer) == layer_type:
-            if names is None or layer.name in names:
-                return layer
-
-    msg = 'Could not find layer of type %s' % str(layer_type)
-
-    if names is not None:
-        msg += 'with name in %s' % str(names)
-
-    raise ValueError(msg)
-
 def io_for_extractor(model):
     preprocessor = get_layer(model, Preprocessor, None)
     return preprocessor.input, preprocessor.output
@@ -44,3 +32,7 @@ def io_for_extractor(model):
 def image_feature_extractor(model):
     image_input, features = io_for_extractor(model)
     return tf.keras.Model(inputs=image_input, outputs=features)
+
+def image_layers(model):
+    preprocessor = get_layer(model, Preprocessor, None)
+    return preprocessor.get_image_layers()

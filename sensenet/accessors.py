@@ -44,3 +44,16 @@ def get_anchors(network):
     anchors = network['metadata']['anchors']
 
     return [[anchors[idx] for idx in mask] for mask in MASKS[base]]
+
+def get_layer(model, layer_type, names):
+    for layer in model.layers:
+        if type(layer) == layer_type:
+            if names is None or layer.name in names:
+                return layer
+
+    msg = 'Could not find layer of type %s' % str(layer_type)
+
+    if names is not None:
+        msg += 'with name in %s' % str(names)
+
+    raise ValueError(msg)

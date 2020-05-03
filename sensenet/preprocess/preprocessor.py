@@ -15,6 +15,7 @@ class Preprocessor(tf.keras.layers.Layer):
 
         if model.get('image_network', None) is not None:
             img_proc = ImagePreprocessor(model['image_network'], extras)
+            self._image_preprocessor = img_proc
 
         for pp in model['preprocess']:
             ptype = pp['type']
@@ -57,3 +58,6 @@ class Preprocessor(tf.keras.layers.Layer):
             return tf.concat(processed, -1)
         else:
             return processed[0]
+
+    def get_image_layers(self):
+        return self._image_preprocessor._image_layers

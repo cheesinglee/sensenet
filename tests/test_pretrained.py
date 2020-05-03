@@ -9,6 +9,7 @@ from sensenet.constants import CATEGORICAL, IMAGE_PATH, BOUNDING_BOX
 
 from sensenet.load import load_points
 from sensenet.models.image import pretrained_image_model, image_feature_extractor
+from sensenet.models.image import image_layers
 from sensenet.preprocess.image import ImageReader
 from sensenet.pretrained import get_image_network
 from sensenet.models.settings import Settings
@@ -34,12 +35,16 @@ def reader_for_network(network_name):
 
 def classify(network_name, accuracy_threshold):
     network = get_image_network(network_name)
+    nlayers = len(network['image_network']['layers'])
     noutputs = network['image_network']['metadata']['outputs']
 
     image_model = create_image_model(network_name, None, 'file')
     pixel_model = create_image_model(network_name, None, 'pixel_values')
     read = reader_for_network(network_name)
 
+    assert len(image_layers(pixel_model)) == nlayers
+
+    # Just check if this is possible
     image_feature_extractor(pixel_model)
     ex_mod = image_feature_extractor(image_model)
 
