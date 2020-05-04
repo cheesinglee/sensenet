@@ -6,31 +6,31 @@ OPTIONAL = {
     'image_path_prefix': str
 }
 
-REQUIRED = {
-}
-
-ATTRIBUTES = {}
-ATTRIBUTES.update(OPTIONAL)
-ATTRIBUTES.update(REQUIRED)
+REQUIRED = {}
 
 class Settings(object):
+    _required_attributes = REQUIRED
+    _attribute_validators = {}
+    _attribute_validators.update(OPTIONAL)
+    _attribute_validators.update(REQUIRED)
+
     def __init__(self, amap):
-        for key in ATTRIBUTES.keys():
+        for key in self.__class__._attribute_validators.keys():
             if key not in amap:
                 self.__setattr__(key, None)
             else:
                 self.__setattr__(key, amap[key])
 
         for key in sorted(amap.keys()):
-            if key not in ATTRIBUTES:
+            if key not in self.__class__._attribute_validators:
                 raise AttributeError('"%s" is not a valid field' % key)
 
     def __setattr__(self, name, value):
-        if name not in ATTRIBUTES:
+        if name not in self.__class__._attribute_validators:
             raise AttributeError('"%s" is not a valid field' % name)
 
         if value is not None:
-            validator = ATTRIBUTES[name]
+            validator = self.__class__._attribute_validators[name]
 
             if type(validator) == list:
                 if len(validator) == 2 and type(validator[0]) == float:
@@ -56,7 +56,7 @@ class Settings(object):
     def __getattribute__(self, name):
         value = super().__getattribute__(name)
 
-        if value is None and name in REQUIRED:
+        if value is None and name in self.__class__._required_attributes:
             raise AttributeError('"%s" not in settings and is required' % name)
 
         return value
