@@ -1,9 +1,10 @@
 OPTIONAL = {
     'bounding_box_threshold': [1e-8, 1.0],
+    'image_path_prefix': str,
+    'input_image_format': str,
     'iou_threshold': [1e-8, 1.0],
     'load_pretrained_weights': bool,
-    'input_image_format': str,
-    'image_path_prefix': str
+    'regression_normalize': bool
 }
 
 REQUIRED = {}
@@ -33,8 +34,8 @@ class Settings(object):
             validator = self.__class__._attribute_validators[name]
 
             if type(validator) == list:
-                if len(validator) == 2 and type(validator[0]) == float:
-                    assert validator[0] <= value <= validator[1]
+                if len(validator) == 2 and type(validator[0]) in [int, float]:
+                    assert validator[0] <= value <= validator[1], (name, value)
                 elif validator[0] == list:
                     assert type(value) == list
                     for v in value:

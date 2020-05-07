@@ -29,7 +29,7 @@ def instantiate_inputs(model, settings):
             'string': kl.Input((nstrings,), dtype=tf.string, name='string')
         }
 
-def apply_layers(model, inputs, treeed_inputs):
+def apply_layers(model, settings, inputs, treeed_inputs):
     if 'networks' in model:
         all_layer_sequences = [layer_sequence(net) for net in model['networks']]
         use_trees = [net.get('trees', False) for net in model['networks']]
@@ -49,7 +49,7 @@ def apply_layers(model, inputs, treeed_inputs):
         else:
             preds = propagate(lseq, inputs)
 
-        if outex['type'] == NUMERIC:
+        if outex['type'] == NUMERIC and not settings.regression_normalize:
             preds = preds * outex['stdev'] + outex['mean']
 
         all_predictions.append(preds)
@@ -76,5 +76,5 @@ def deepnet_model(model, input_settings):
     else:
         treeed_inputs = None
 
-    predictions = apply_layers(model, inputs, treeed_inputs)
+    predictions = apply_layers(model, settings, inputs, treeed_inputs)
     return tf.keras.Model(inputs=raw_inputs, outputs=predictions)

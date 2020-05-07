@@ -7,12 +7,13 @@ tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import CATEGORICAL, IMAGE_PATH, BOUNDING_BOX
 
+from sensenet.accessors import get_image_shape
 from sensenet.load import load_points
 from sensenet.models.image import pretrained_image_model, image_feature_extractor
 from sensenet.models.image import image_layers
-from sensenet.preprocess.image import ImageReader
-from sensenet.pretrained import get_image_network
 from sensenet.models.settings import Settings
+from sensenet.preprocess.image import get_image_reader_fn
+from sensenet.pretrained import get_image_network
 
 EXTRA_PARAMS = {
     'image_path_prefix': 'tests/data/images/',
@@ -28,10 +29,10 @@ def create_image_model(network_name, box_threshold, image_format):
     return pretrained_image_model(network_name, extras)
 
 def reader_for_network(network_name):
-    network = get_image_network(network_name)
-    read_settings = Settings(EXTRA_PARAMS)
+    image_shape = get_image_shape(get_image_network(network_name))
+    path_prefix = EXTRA_PARAMS['image_path_prefix']
 
-    return ImageReader(network['image_network'], read_settings).get_reader_fn()
+    return get_image_reader_fn(image_shape, 'file', path_prefix)
 
 def classify(network_name, accuracy_threshold):
     network = get_image_network(network_name)

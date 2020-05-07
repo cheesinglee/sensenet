@@ -58,6 +58,7 @@ def initializer_map(params):
                 imap[k] = weights
             else:
                 random_seed = params['seed']
+                assert random_seed is not None
                 imap[k] = INITIALIZERS[weights](seed=random_seed)
         elif weights is not None:
             weight_array = np.array(weights, dtype=np.float32)
