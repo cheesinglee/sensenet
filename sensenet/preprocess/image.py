@@ -1,3 +1,5 @@
+import os
+
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
@@ -18,7 +20,7 @@ def get_image_reader_fn(image_shape, input_format, prefix):
                 path = path_or_bytes
 
                 if prefix:
-                    path = tf.strings.join([prefix, path])
+                    path = tf.strings.join([prefix + os.sep, path])
 
                 img_bytes = tf.io.read_file(path)
             else:
