@@ -7,6 +7,7 @@ from sensenet.accessors import get_image_shape, get_output_exposition
 from sensenet.layers.utils import propagate
 from sensenet.layers.tree import ForestPreprocessor
 from sensenet.layers.construct import layer_sequence, tree_preprocessor
+from sensenet.load import load_points
 from sensenet.models.settings import ensure_settings
 from sensenet.preprocess.preprocessor import Preprocessor
 from sensenet.pretrained import load_pretrained_weights
@@ -78,3 +79,16 @@ def deepnet_model(model, input_settings):
 
     predictions = apply_layers(model, settings, inputs, treeed_inputs)
     return tf.keras.Model(inputs=raw_inputs, outputs=predictions)
+
+class DeepnetWrapper(object):
+    def __init__(self, model, settings):
+        self._preprocessors = model['preprocess']
+        self._model = deepnet_model(model, settings)
+
+    def predict(self, points):
+        if isinstance(points[0], list):
+            pvec = load_points(self._preprocessors, points)
+        else:
+            pvec = load_points(self._preprocessors, [points])
+
+        return self._model.predict(pvec)

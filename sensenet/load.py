@@ -4,9 +4,7 @@ tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import NUMERIC, CATEGORICAL, IMAGE_PATH
 
-def load_points(model, points):
-    preprocessors = model['preprocess']
-
+def load_points(preprocessors, points):
     rows = len(points)
     cols = len(preprocessors)
 

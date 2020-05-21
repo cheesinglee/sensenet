@@ -5,10 +5,10 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import NUMERIC, CATEGORICAL
-from sensenet.load import load_points
 from sensenet.preprocess.preprocessor import Preprocessor
 from sensenet.layers.tree import ForestPreprocessor
-from sensenet.models.deepnet import deepnet_model
+from sensenet.load import load_points
+from sensenet.models.deepnet import DeepnetWrapper
 from sensenet.models.settings import Settings
 from sensenet.io.save import assets_for_deepnet, write_model
 
@@ -30,14 +30,13 @@ def validate_predictions(test_artifact):
     assert len(test_points) > 4
     assert not any([t == test_points[0] for t in test_points[1:]])
 
-    ins = load_points(test_model, [t['input'] for t in test_points])
+    ins = [t['input'] for t in test_points]
     outs = np.array([t['output'] for t in test_points])
 
-    model = deepnet_model(test_model, EXTRA_PARAMS)
+    model = DeepnetWrapper(test_model, EXTRA_PARAMS)
 
     for i, true_pred in enumerate(outs):
-        point = {k: np.reshape(ins[k][i,:], [1, -1]) for k in ins.keys()}
-        mod_pred = model.predict(point)
+        mod_pred = model.predict([ins[i]])
         outstr = '\nPred: %s\nExpt: %s' % (str(mod_pred[0]), str(true_pred))
 
         assert np.allclose(mod_pred[0], true_pred, atol=1e-7), outstr
@@ -83,7 +82,7 @@ def single_embedding(index):
     preprocessor = Preprocessor(test_info, EXTRA_PARAMS)
     forest = ForestPreprocessor(test_info)
 
-    inputs = load_points(test_info, test_info['input_data'])
+    inputs = load_points(test_info['preprocess'], test_info['input_data'])
     proc_result = preprocessor(inputs)
     tree_result = forest(proc_result)
 

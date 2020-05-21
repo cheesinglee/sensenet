@@ -6,9 +6,6 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.layers.utils import propagate
-from sensenet.layers.construct import layer_sequence
-from sensenet.models.deepnet import deepnet_model
-from sensenet.models.bounding_box import box_detector
 
 TEST_DATA_DIR = 'tests/data/'
 

@@ -38,6 +38,7 @@ def classify(network_name, accuracy_threshold):
     network = get_image_network(network_name)
     nlayers = len(network['image_network']['layers'])
     noutputs = network['image_network']['metadata']['outputs']
+    preprocessors = network['preprocess']
 
     image_model = create_image_model(network_name, None, 'file')
     pixel_model = create_image_model(network_name, None, 'pixel_values')
@@ -50,7 +51,7 @@ def classify(network_name, accuracy_threshold):
     ex_mod = image_feature_extractor(image_model)
 
     for image, cidx in [('dog.jpg', 254), ('bus.jpg', 779)]:
-        point = load_points(network, [[image]])
+        point = load_points(preprocessors, [[image]])
         file_pred = image_model.predict(point)
 
         img_px = np.expand_dims(read(image).numpy(), axis=0)
@@ -63,7 +64,7 @@ def classify(network_name, accuracy_threshold):
                 else:
                     assert p < 0.02, str((i, p))
 
-    outputs = ex_mod(load_points(network, [['dog.jpg'], ['bus.jpg']]))
+    outputs = ex_mod(load_points(preprocessors, [['dog.jpg'], ['bus.jpg']]))
     assert outputs.shape == (2, noutputs)
 
 def test_resnet50():

@@ -18,7 +18,7 @@ setup(
     author = 'BigML Team',
     author_email = 'team@bigml.com',
     url = 'http://bigml.com/',
-    description='Network builder for deepnet topologies',
+    description='Network builder for bigml deepnet topologies',
     long_description=long_description,
     packages=find_packages(),
     tests_require=[
