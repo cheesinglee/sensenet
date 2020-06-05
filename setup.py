@@ -13,7 +13,7 @@ with open(path.join(here, 'README.md'), 'r') as f:
     long_description = f.read()
 
 setup(
-    name='sensenet',
+    name='bigml-sensenet',
     version=__version__,
     author = 'BigML Team',
     author_email = 'team@bigml.com',

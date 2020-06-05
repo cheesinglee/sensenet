@@ -92,7 +92,7 @@ def make_legacy_sequence(layers_params):
 
     for i, lp in enumerate(layers_params):
         if use_next:
-            if i < len(layers_params) - 1:
+            if i + 1 < len(layers_params):
                 residuals = layers_params[i + 1].get('residuals', False)
             else:
                 residuals = False
@@ -108,3 +108,112 @@ def make_legacy_sequence(layers_params):
             use_next = True
 
     return layers
+
+def to_legacy_residual(block):
+    dpath = list(block['dense_path'])
+
+    if dpath[-1]['type'] == 'batch_normalization':
+        dpath.append({'type': 'activation', 'activation_function': 'linear'})
+
+    out_layers = to_legacy_sequence(dpath)
+
+    out_layers[-1]['activation_function'] = block['activation_function']
+    out_layers[-1]['residuals'] = True
+
+    return out_layers, 1
+
+def to_legacy_batchnorm(layer):
+    variance = np.array(layer['variance'])
+
+    out_layer = {
+        'weights': np.eye(variance.shape[0]).tolist(),
+        'offset': layer['beta'],
+        'scale': layer['gamma'],
+        'mean': layer['mean'],
+        'stdev': np.sqrt(variance + 1e-3).tolist(),
+        'residuals': False,
+        'activation_function': 'identity'
+    }
+
+    return [out_layer], 1
+
+def to_legacy_layer(layers, i):
+    assert layers[i]['type'] == 'dense'
+
+    out_layer = {
+        'weights': transpose(layers[i]['weights']),
+        'offset': layers[i]['offset'],
+        'scale': None,
+        'mean': None,
+        'stdev': None,
+        'residuals': False,
+        'activation_function': layers[i]['activation_function']
+    }
+
+    nlayers = 1
+    afn = out_layer['activation_function']
+
+    if i + 1 < len(layers) and layers[i + 1]['type'] == 'activation':
+        assert afn in [None, 'identity', 'linear'], afn
+
+        nlayers = 2
+        out_layer['activation_function'] = layers[i + 1]['activation_function']
+    if i + 2 < len(layers):
+        if (layers[i + 1]['type'] == 'batch_normalization' and
+            layers[i + 2]['type'] == 'activation'):
+
+            assert afn in [None, 'identity', 'linear'], afn
+
+            nlayers = 3
+            offset = np.array(out_layer['offset'])
+            batch_layer = to_legacy_batchnorm(layers[i + 1])[0][0]
+            batch_mean = np.array(batch_layer['mean'])
+
+            out_layer.update(batch_layer)
+            out_layer['weights'] = transpose(layers[i]['weights'])
+            out_layer['mean'] = (batch_mean - offset).tolist()
+            out_layer['activation_function'] = layers[i + 2]['activation_function']
+
+    return [out_layer], nlayers
+
+def to_legacy_sequence(layers):
+    i = 0
+    out_layers = []
+
+    while i < len(layers):
+        ltype = layers[i].get('type', 'fully_connected')
+
+        if ltype == 'dense_residual_block':
+            outputs, nlayers = to_legacy_residual(layers[i])
+        elif ltype == 'dense':
+            outputs, nlayers = to_legacy_layer(layers, i)
+        elif ltype == 'batch_normalization':
+            outputs, nlayers = to_legacy_batchnorm(layers[i])
+        elif ltype == 'fully_connected':
+            outputs, nlayers = ([layers[i]], 1)
+        else:
+            raise ValueError('Type is %s' % ltype)
+
+        out_layers.extend(outputs)
+        i += nlayers
+
+    return out_layers
+
+def legacy_convert(model_json):
+    output = dict(model_json)
+
+    if 'layers' in model_json:
+        output['layers'] = to_legacy_sequence(model_json['layers'])
+    elif 'networks' in model_json:
+        outnets = []
+
+        for network in model_json['networks']:
+            newnet = dict(network)
+            newnet['layers'] = to_legacy_sequence(network['layers'])
+            outnets.append(newnet)
+
+        output['networks'] = outnets
+    else:
+        raise ValueError('Wrong format: %s' % sorted(model_json.keys()))
+
+    return output

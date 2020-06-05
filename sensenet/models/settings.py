@@ -43,12 +43,12 @@ class Settings(object):
                 elif validator[0] == dict:
                     ktype, vtype = validator[1],
                     for key in value:
-                        assert type(key) == ktype, (ktype, key)
+                        assert type(key) == ktype, (ktype, value[key])
                         assert type(value[key]) == vtype, (vtype, value[key])
                 else:
-                    assert value in validator, (name, value)
+                    assert value in validator, (name, value, validator)
             elif type(validator) == type:
-                assert type(value) == validator, str((type(value), validator))
+                assert type(value) == validator, (name, value, validator)
             else:
                 raise ValueError('Validator is "%s"' % str(validator))
 

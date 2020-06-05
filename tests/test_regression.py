@@ -6,6 +6,7 @@ tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import NUMERIC, CATEGORICAL
 from sensenet.preprocess.preprocessor import Preprocessor
+from sensenet.layers.legacy import legacy_convert
 from sensenet.layers.tree import ForestPreprocessor
 from sensenet.load import load_points
 from sensenet.models.deepnet import DeepnetWrapper
@@ -35,11 +36,18 @@ def validate_predictions(test_artifact):
 
     model = DeepnetWrapper(test_model, EXTRA_PARAMS)
 
+    converted = legacy_convert(test_model)
+    legacy_model = DeepnetWrapper(converted, EXTRA_PARAMS)
+
     for i, true_pred in enumerate(outs):
         mod_pred = model.predict([ins[i]])
+        legacy_pred = legacy_model.predict(ins[i])
+
         outstr = '\nPred: %s\nExpt: %s' % (str(mod_pred[0]), str(true_pred))
+        legstr = '\nLegacy: %s\nExpt: %s' % (str(legacy_pred[0]), str(true_pred))
 
         assert np.allclose(mod_pred[0], true_pred, atol=1e-7), outstr
+        assert np.allclose(legacy_pred[0], true_pred, atol=1e-7), legstr
 
     mod_preds = model.predict(ins)
     assert np.allclose(mod_preds, outs, atol=1e-7)
