@@ -5,6 +5,7 @@
 build
 dist
 laminar.egg-info/
+bigml_sensenet.egg-info/
 /.eggs
 /config.ini
 /*.csv
