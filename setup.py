@@ -20,6 +20,7 @@ setup(
     url = 'http://bigml.com/',
     description='Network builder for bigml deepnet topologies',
     long_description=long_description,
+    long_description_content_type='text/markdown',
     packages=find_packages(),
     tests_require=[
         'nose>=1.3,<1.4',
