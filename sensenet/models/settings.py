@@ -37,13 +37,14 @@ class Settings(object):
                 if len(validator) == 2 and type(validator[0]) in [int, float]:
                     assert validator[0] <= value <= validator[1], (name, value)
                 elif validator[0] == list:
-                    assert type(value) == list
+                    assert type(value) == list, (name, value)
                     for v in value:
                         assert type(v) == validator[1]
                 elif validator[0] == dict:
-                    ktype, vtype = validator[1],
+                    assert type(value) == dict, (name, value)
+                    ktype, vtype = validator[1]
                     for key in value:
-                        assert type(key) == ktype, (ktype, value[key])
+                        assert type(key) == ktype, (name, ktype, key)
                         assert type(value[key]) == vtype, (vtype, value[key])
                 else:
                     assert value in validator, (name, value, validator)
