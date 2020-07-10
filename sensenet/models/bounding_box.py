@@ -6,7 +6,7 @@ kl = sensenet.importers.import_keras_layers()
 from sensenet.constants import MAX_BOUNDING_BOXES, MASKS
 from sensenet.constants import IGNORE_THRESHOLD, IOU_THRESHOLD, MAX_OBJECTS
 from sensenet.accessors import number_of_classes, get_anchors, get_image_shape
-from sensenet.layers.construct import Yolo
+from sensenet.layers.yolo import Yolo
 from sensenet.models.settings import ensure_settings
 from sensenet.preprocess.image import ImageReader, ImageLoader
 from sensenet.pretrained import load_pretrained_weights
