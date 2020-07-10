@@ -39,6 +39,7 @@ def conv_2d(params):
                      use_bias=params.get('bias', None) is not None,
                      activation=activation_function(params),
                      kernel_initializer=imap['kernel'],
+                     kernel_regularizer=tf.keras.regularizers.l2(0.0005),
                      bias_initializer=imap['bias'])
 
 

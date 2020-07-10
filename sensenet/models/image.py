@@ -1,3 +1,5 @@
+import math
+
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
@@ -6,7 +8,7 @@ from sensenet.models.bounding_box import box_detector
 from sensenet.models.deepnet import deepnet_model
 from sensenet.models.settings import ensure_settings
 from sensenet.preprocess.preprocessor import Preprocessor
-from sensenet.pretrained import get_image_network, load_pretrained_weights
+from sensenet.pretrained import load_pretrained_weights, get_pretrained_network
 
 def image_model(network, input_settings):
     settings = ensure_settings(input_settings)
@@ -22,7 +24,7 @@ def image_model(network, input_settings):
     return model
 
 def pretrained_image_model(network_name, settings):
-    network = get_image_network(network_name)
+    network = get_pretrained_network(network_name)
     return image_model(network, settings)
 
 def io_for_extractor(model):

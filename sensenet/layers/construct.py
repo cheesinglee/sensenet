@@ -19,6 +19,8 @@ class YoloTail(tf.keras.layers.Layer):
     def __init__(self, network):
         super(YoloTail, self).__init__()
 
+        self._nclasses = nclasses
+        self._input_size = get_image_shape(network)[1]
         self._trunk = []
         self._branches = []
         self._concatenations = {}
@@ -35,12 +37,41 @@ class YoloTail(tf.keras.layers.Layer):
 
         for i, branch in enumerate(out_branches['output_branches']):
             idx = branch['input']
+            d_info = [branch[k] for k in ['strides', 'anchors', 'xyscale']]
             layers = make_sequence(branch['convolution_path'], LAYER_FUNCTIONS)
 
-            self._branches.append((idx, layers))
+            self._branches.append((idx, d_info, layers))
+
+    def decode_outputs(self, features, decoding_info):
+        strides, anchors, xyscale = decoding_info
+        fsize = tf.shape(features)[0]
+        osize = tf.constant(self._input_size // int(strides))
+        ans = len(anchors)
+
+        feature_shape = (fsize, osize, osize, ans, 5 + self._nclasses)
+        conv_output = tf.reshape(features, feature_shape)
+
+        all_outputs = tf.split(conv_output, (2, 2, 1, self._nclasses), axis=-1)
+        raw_dxdy, raw_dwdh, raw_conf, raw_prob = all_outputs
+
+        xy_grid = tf.meshgrid(tf.range(osize), tf.range(osize))
+        xy_grid = tf.expand_dims(tf.stack(xy_grid, axis=-1), axis=2)
+        xy_grid = tf.expand_dims(xy_grid, axis=0)
+        xy_grid = tf.cast(tf.tile(xy_grid, [fsize, 1, 1, ans, 1]), tf.float32)
+
+        xy_correction = (tf.sigmoid(raw_dxdy) * xyscale) - 0.5 * (xyscale - 1)
+        pred_xy = (xy_correction + xy_grid) * strides
+        pred_wh = tf.exp(raw_dwdh) * tf.constant(anchors, dtype=tf.float32)
+        pred_xywh = tf.concat([pred_xy, pred_wh], axis=-1)
+
+        pred_conf = tf.sigmoid(raw_conf)
+        pred_prob = tf.sigmoid(raw_prob)
+
+        return pred_xywh, pred_prob * pred_conf
 
     def call(self, inputs):
         outputs = []
+        printed = False
         next_inputs = inputs
 
         for i, layer in enumerate(self._trunk):
@@ -52,15 +83,19 @@ class YoloTail(tf.keras.layers.Layer):
 
             outputs.append(next_inputs)
 
-        return [propagate(layers, outputs[i]) for i, layers in self._branches]
+        predictions = []
+
+        for i, decoding_info, layers in self._branches:
+            features = propagate(layers, outputs[i])
+            predictions.append(self.decode_outputs(features, decoding_info))
+
+        return predictions
 
 def layer_sequence(model):
     layers_params = model['layers']
 
     if any(p.get('type', None) == None for p in layers_params):
         return make_legacy_sequence(layers_params)
-    elif layers_params[-1]['type'] == 'yolo_output_branches':
-        return YoloTail(model)
     else:
         return make_sequence(layers_params, LAYER_FUNCTIONS)
 

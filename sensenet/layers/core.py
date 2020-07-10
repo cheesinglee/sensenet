@@ -72,14 +72,23 @@ def avg_pool_2d(params):
     return kl.AveragePooling2D(pool_size, strides, padding)
 
 def padding_2d(params):
-    padding = [[int(p) for p in ps] for ps in params['padding']]
+    padding = tuple([tuple([int(p) for p in ps]) for ps in params['padding']])
     return kl.ZeroPadding2D(padding)
 
 def upsampling_2d(params):
-    return kl.UpSampling2D(params['size'])
+    if params.get('method', None) == 'bilinear':
+        return kl.UpSampling2D(params['size'], interpolation='bilinear')
+    else:
+        return kl.UpSampling2D(params['size'])
 
 def concatenate(params):
     return kl.Concatenate()
+
+def split_channels(params):
+    n = params['number_of_splits']
+    i = params['group_index']
+
+    return kl.Lambda(lambda x: tf.split(x, num_or_size_splits=n, axis=-1)[i])
 
 CORE_LAYERS = {
     'activation': activation,
@@ -93,5 +102,6 @@ CORE_LAYERS = {
     'global_max_pool_2d': global_max_pool_2d,
     'max_pool_2d': max_pool_2d,
     'padding_2d': padding_2d,
+    'split_channels': split_channels,
     'upsampling_2d': upsampling_2d
 }

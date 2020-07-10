@@ -4,123 +4,83 @@ tf = sensenet.importers.import_tensorflow()
 kl = sensenet.importers.import_keras_layers()
 
 from sensenet.constants import MAX_BOUNDING_BOXES, MASKS
-from sensenet.constants import IGNORE_THRESHOLD, IOU_THRESHOLD
+from sensenet.constants import IGNORE_THRESHOLD, IOU_THRESHOLD, MAX_OBJECTS
 from sensenet.accessors import number_of_classes, get_anchors, get_image_shape
-from sensenet.layers.construct import layer_sequence
-from sensenet.layers.utils import constant, shape
+from sensenet.layers.construct import Yolo
 from sensenet.models.settings import ensure_settings
 from sensenet.preprocess.image import ImageReader, ImageLoader
 from sensenet.pretrained import load_pretrained_weights
-
-def branch_head(feats, anchors, num_classes, input_shape, calc_loss):
-    nas = len(anchors)
-
-    # Reshape to batch, height, width, nanchors, box_params.
-    at = tf.reshape(constant(anchors, tf.float32), [1, 1, 1, nas, 2])
-
-    grid_shape = np.array(shape(feats)[1:3], dtype=np.int32) # height, width
-    x_shape = grid_shape[1]
-    y_shape = grid_shape[0]
-    x_range = tf.range(0, x_shape)
-    y_range = tf.range(0, y_shape)
-
-    grid_x = tf.tile(tf.reshape(x_range, [1, -1, 1, 1]), [y_shape, 1, 1, 1])
-    grid_y = tf.tile(tf.reshape(y_range, [-1, 1, 1, 1]), [1, x_shape, 1, 1])
-    grid = tf.cast(tf.concat([grid_x, grid_y], -1), feats.dtype)
-
-    feats = tf.reshape(feats, [-1, y_shape, x_shape, nas, num_classes + 5])
-
-    t_grid = constant(grid_shape[::-1], feats.dtype)
-    t_input = constant(input_shape[::-1], feats.dtype)
-
-    # Adjust predictions to each spatial grid point and anchor size.
-    box_xy = (tf.sigmoid(feats[..., :2]) + grid) / t_grid
-    box_wh = tf.exp(feats[..., 2:4]) * at / t_input
-    box_confidence = tf.sigmoid(feats[..., 4:5])
-    box_class_probs = tf.sigmoid(feats[..., 5:])
-
-    if calc_loss == True:
-        return grid, feats, box_xy, box_wh
-    else:
-        return box_xy, box_wh, box_confidence, box_class_probs
 
 class BoxLocator(tf.keras.layers.Layer):
     def __init__(self, network, nclasses, settings):
         super(BoxLocator, self).__init__()
 
         self._nclasses = nclasses
-        self._threshold = settings.bounding_box_threshold or IGNORE_THRESHOLD
-        self._iou_threshold = settings.iou_threshold or IOU_THRESHOLD
-        self._anchors = get_anchors(network)
+        self._input_shape = get_image_shape(network)[1:3]
 
-    def correct_boxes(self, box_xy, box_wh, input_shape):
+        self._threshold = settings.bounding_box_threshold or SCORE_THRESHOLD
+        self._iou_threshold = settings.iou_threshold or IOU_THRESHOLD
+        self._max_objects = settings.max_objects or MAX_OBJECTS
+
+    def filter_boxes(self, box_xywh, scores):
+        scores_max = tf.math.reduce_max(scores, axis=-1)
+        mask = scores_max >= min(0.2, self._threshold)
+
+        boxes_masked = tf.boolean_mask(box_xywh, mask)
+        boxes_shape = (tf.shape(scores)[0], -1, tf.shape(boxes_masked)[-1])
+        class_boxes = tf.reshape(boxes_masked, boxes_shape)
+
+        preds_masked = tf.boolean_mask(scores, mask)
+        conf_shape = (tf.shape(scores)[0], -1, tf.shape(preds_masked)[-1])
+        pred_conf = tf.reshape(preds_masked, conf_shape)
+
+        box_xy, box_wh = tf.split(class_boxes, (2, 2), axis=-1)
+        input_shape = tf.constant(self._input_shape, dtype=tf.float32)
+
         box_yx = box_xy[..., ::-1]
         box_hw = box_wh[..., ::-1]
 
-        input_shape = constant(input_shape, box_yx.dtype)
-        box_mins = box_yx - (box_hw / 2.)
-        box_maxes = box_yx + (box_hw / 2.)
+        box_mins = (box_yx - (box_hw / 2.)) / input_shape
+        box_maxes = (box_yx + (box_hw / 2.)) / input_shape
+        boxes = tf.concat([
+            box_mins[..., 0:1],  # y_min
+            box_mins[..., 1:2],  # x_min
+            box_maxes[..., 0:1],  # y_max
+            box_maxes[..., 1:2]  # x_max
+        ], axis=-1)
 
-        min_maxes = [box_mins[..., 0:1],   # y_min
-                     box_mins[..., 1:2],   # x_min
-                     box_maxes[..., 0:1],  # y_max
-                     box_maxes[..., 1:2]]  # x_max
+        return boxes, pred_conf
 
-        boxes =  tf.concat(min_maxes, -1)
-        boxes *= tf.concat([input_shape, input_shape], -1)
-
-        return boxes
-
-    def branch_head(self, features, anchors, input_shape):
-        return branch_head(features, anchors, self._nclasses, input_shape, False)
-
-    def boxes_and_scores(self, features, anchors, input_shape):
-        xy, wh, conf, probs = self.branch_head(features, anchors, input_shape)
-        boxes = tf.reshape(self.correct_boxes(xy, wh, input_shape), [-1, 4])
-        box_scores = tf.reshape(conf * probs, [-1, self._nclasses])
-
-        return boxes, box_scores
+    def reshape3d(self, x):
+        return tf.reshape(x, (tf.shape(x)[0], -1, tf.shape(x)[-1]))
 
     def call(self, inputs):
-        input_shape = shape(inputs[0])[1:3] * 32
-
-        boxes = []
+        box_bounds = []
         box_scores = []
 
-        for features, anchors in zip(inputs, self._anchors):
-            bxs, scs = self.boxes_and_scores(features, anchors, input_shape)
-            boxes.append(bxs)
-            box_scores.append(scs)
+        for map_boxes, map_scores in inputs:
+            box_bounds.append(self.reshape3d(map_boxes))
+            box_scores.append(self.reshape3d(map_scores))
 
-        boxes = tf.concat(boxes, 0)
-        box_scores = tf.concat(box_scores, 0)
+        boxes = tf.concat(box_bounds, axis=1)
+        scores = tf.concat(box_scores, axis=1)
 
-        mask = box_scores >= self._threshold
-        max_boxes = constant(MAX_BOUNDING_BOXES, tf.int32)
+        boxes, scores = self.filter_boxes(boxes, scores)
+        sc_shape = tf.shape(scores)
 
-        boxes_ = []
-        scores_ = []
-        classes_ = []
+        boxes, scores, classes, valid = tf.image.combined_non_max_suppression(
+            boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
+            scores=tf.reshape(scores, (sc_shape[0], -1, sc_shape[-1])),
+            max_output_size_per_class=self._max_objects,
+            max_total_size=self._max_objects,
+            iou_threshold=self._iou_threshold,
+            score_threshold=self._threshold
+        )
 
-        for c in range(self._nclasses):
-            c_boxes = tf.boolean_mask(boxes, mask[:, c])
-            c_scores = tf.boolean_mask(box_scores[:, c], mask[:, c])
+        vboxes = tf.gather(boxes[0,:valid[0],...], [1,0,3,2], axis=-1)
+        vboxes = tf.math.round(vboxes * self._input_shape[0])
 
-            iou_t = self._iou_threshold
-            nms = tf.image.non_max_suppression
-            nms_index = nms(c_boxes, c_scores, max_boxes, iou_threshold=iou_t)
-
-            c_boxes = tf.gather(c_boxes, nms_index)
-            c_scores = tf.gather(c_scores, nms_index)
-            classes = tf.ones_like(c_scores, tf.int32) * c
-
-            boxes_.append(c_boxes)
-            scores_.append(c_scores)
-            classes_.append(classes)
-
-        return (tf.expand_dims(tf.concat(boxes_, 0), 0, name='boxes'),
-                tf.expand_dims(tf.concat(scores_, 0), 0, name='scores'),
-                tf.expand_dims(tf.concat(classes_, 0), 0, name='classes'))
+        return vboxes, scores[0,:valid[0]], classes[0,:valid[0]]
 
 def box_detector(model, input_settings):
     settings = ensure_settings(input_settings)
@@ -136,12 +96,13 @@ def box_detector(model, input_settings):
         image_input = kl.Input((1,), dtype=tf.string, name='image')
         raw_image = reader(image_input[:,0])
 
+    nclasses = number_of_classes(model)
     loader = ImageLoader(network)
-    yolo_tail = layer_sequence(network)
-    locator = BoxLocator(network, number_of_classes(model), settings)
+    yolo = Yolo(network, nclasses)
+    locator = BoxLocator(network, nclasses, settings)
 
     image = loader(raw_image)
-    features = yolo_tail(image)
+    features = yolo(image)
 
     # Boxes, scores, and classes
     all_outputs = locator(features)

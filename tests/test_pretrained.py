@@ -10,10 +10,10 @@ from sensenet.constants import CATEGORICAL, IMAGE_PATH, BOUNDING_BOX
 from sensenet.accessors import get_image_shape
 from sensenet.load import load_points
 from sensenet.models.image import pretrained_image_model, image_feature_extractor
-from sensenet.models.image import image_layers
+from sensenet.models.image import image_layers, image_model
+from sensenet.models.image import get_pretrained_network
 from sensenet.models.settings import Settings
 from sensenet.preprocess.image import get_image_reader_fn
-from sensenet.pretrained import get_image_network
 
 EXTRA_PARAMS = {
     'image_path_prefix': 'tests/data/images/',
@@ -29,7 +29,7 @@ def create_image_model(network_name, box_threshold, image_format):
     return pretrained_image_model(network_name, extras)
 
 def reader_for_network(network_name):
-    image_shape = get_image_shape(get_image_network(network_name))
+    image_shape = get_image_shape(get_pretrained_network(network_name))
     path_prefix = EXTRA_PARAMS['image_path_prefix']
 
     return get_image_reader_fn(image_shape, 'file', path_prefix)
@@ -101,3 +101,19 @@ def test_yolov3():
 
 def test_tinyyolov3():
     detect_bounding_boxes('tinyyolov3', 3, [0, 53], 0.4)
+
+def test_temp_tinyyolov4():
+    with open('tinyyolov4.json', 'r') as fin:
+        network = json.load(fin)
+
+    extras = {
+        'image_path_prefix': 'tests/data/images/',
+        'input_image_format': 'file',
+        'load_pretrained_weights': False,
+        'bounding_box_threshold': 0.4
+    }
+
+    image_detector = image_model(network, extras)
+    file_pred = image_detector.predict([['pizza_people.jpg']])
+
+    print(file_pred)

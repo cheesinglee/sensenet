@@ -34,6 +34,7 @@ IMAGE_STANDARDIZERS = {
 
 # Default parameters for YOLO bounding box detection
 MAX_BOUNDING_BOXES = 16
+MAX_OBJECTS = 32
 IGNORE_THRESHOLD = 0.5
 IOU_THRESHOLD = 0.5
 

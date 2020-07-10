@@ -34,8 +34,11 @@ def cache_resource_path(resource_name):
 with open(cache_resource_path(CNN_METADATA_FILE), 'r') as fin:
     PRETRAINED_CNN_METADATA = json.load(fin)
 
-def get_image_network(network_name):
-    return PRETRAINED_CNN_METADATA[network_name]
+def get_pretrained_network(network_name):
+    if network_name in PRETRAINED_CNN_METADATA:
+        return PRETRAINED_CNN_METADATA[network_name]
+    else:
+        raise KeyError('%s is not a pretrained network' % network_name)
 
 def load_pretrained_weights(model, network):
     metadata = network['metadata']
@@ -43,9 +46,3 @@ def load_pretrained_weights(model, network):
     archive = cache_resource_path(network_path + '.h5')
 
     model.load_weights(archive)
-
-def get_pretrained_network(network_name):
-    return {
-        'metadata': PRETRAINED_CNN_METADATA[network_name],
-        'layers': None
-    }
