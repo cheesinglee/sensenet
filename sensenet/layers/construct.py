@@ -5,7 +5,7 @@ from sensenet.layers.block import SIMPLE_LAYERS, BLOCKS
 from sensenet.layers.convolutional import CONVOLUTIONAL_LAYERS, get_shape_params
 from sensenet.layers.legacy import make_legacy_sequence
 from sensenet.layers.tree import ForestPreprocessor
-from sensenet.layers.utils import make_sequence,  WEIGHT_INITIALIZERS
+from sensenet.layers.utils import make_sequence, propagate, WEIGHT_INITIALIZERS
 
 LAYER_FUNCTIONS = {}
 LAYER_FUNCTIONS.update(SIMPLE_LAYERS)

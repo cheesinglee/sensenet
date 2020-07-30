@@ -31,7 +31,8 @@ def round_trip(settings, wrapper):
     assert not os.path.exists(TEMP_WEIGHTS)
 
     short = remove_weights(settings)
-    max_len = min(128000, len(json.dumps(settings)) * 0.8), max_len
+    # Assure we get a small network short network even when the network is big
+    max_len = min(128000, len(json.dumps(settings)))
     assert len(json.dumps(short)) < max_len
 
     wrapper._model.save_weights(TEMP_WEIGHTS)
