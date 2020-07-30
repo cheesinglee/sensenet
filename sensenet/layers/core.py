@@ -31,6 +31,7 @@ def activation(params):
 def batchnorm(params):
     imap = initializer_map(params)
     return kl.BatchNormalization(dtype=tf.float32,
+                                 epsilon=params.get('epsilon', 1e-3),
                                  beta_initializer=imap['beta'],
                                  gamma_initializer=imap['gamma'],
                                  moving_mean_initializer=imap['mean'],

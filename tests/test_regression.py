@@ -1,4 +1,5 @@
 import os
+import json
 
 import sensenet.importers
 np = sensenet.importers.import_numpy()
@@ -6,6 +7,7 @@ tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import NUMERIC, CATEGORICAL
 from sensenet.preprocess.preprocessor import Preprocessor
+from sensenet.layers.construct import remove_weights
 from sensenet.layers.legacy import legacy_convert
 from sensenet.layers.tree import ForestPreprocessor
 from sensenet.load import load_points
@@ -21,8 +23,29 @@ LEGACY = 'legacy_regression.json.gz'
 SEARCH = 'search_regression.json.gz'
 LEGACY_SEARCH = 'legacy_search_regression.json.gz'
 IMAGE = 'image_regression.json.gz'
+TEMP_WEIGHTS = os.path.join(TEST_DATA_DIR, 'test_save_weights.h5')
 
 EXTRA_PARAMS = Settings({'image_path_prefix': TEST_DATA_DIR + 'images/digits/'})
+
+def round_trip(settings, wrapper):
+    assert not os.path.exists(TEMP_WEIGHTS)
+
+    short = remove_weights(settings)
+    max_len = min(128000, len(json.dumps(settings)) * 0.8), max_len
+    assert len(json.dumps(short)) < max_len
+
+    wrapper._model.save_weights(TEMP_WEIGHTS)
+    new_wrapper = DeepnetWrapper(short, EXTRA_PARAMS)
+    new_wrapper._model.load_weights(TEMP_WEIGHTS)
+
+    os.remove(TEMP_WEIGHTS)
+    assert not os.path.exists(TEMP_WEIGHTS)
+
+    return new_wrapper
+
+def compare_predictions(model, ins, expected):
+    mod_preds = model.predict(ins)
+    assert np.allclose(mod_preds, expected, atol=1e-7)
 
 def validate_predictions(test_artifact):
     test_model, test_points = [test_artifact[k] for k in ['model', 'validation']]
@@ -35,9 +58,11 @@ def validate_predictions(test_artifact):
     outs = np.array([t['output'] for t in test_points])
 
     model = DeepnetWrapper(test_model, EXTRA_PARAMS)
+    remodel = round_trip(test_model, model)
 
     converted = legacy_convert(test_model)
     legacy_model = DeepnetWrapper(converted, EXTRA_PARAMS)
+    legacy_remodel = round_trip(converted, legacy_model)
 
     for i, true_pred in enumerate(outs):
         mod_pred = model.predict([ins[i]])
@@ -49,8 +74,9 @@ def validate_predictions(test_artifact):
         assert np.allclose(mod_pred[0], true_pred, atol=1e-7), outstr
         assert np.allclose(legacy_pred[0], true_pred, atol=1e-7), legstr
 
-    mod_preds = model.predict(ins)
-    assert np.allclose(mod_preds, outs, atol=1e-7)
+    compare_predictions(model, ins, outs)
+    compare_predictions(remodel, ins, outs)
+    compare_predictions(legacy_remodel, ins, outs)
 
 def single_artifact(regression_path, index):
     test_artifact = read_regression(regression_path)[index]

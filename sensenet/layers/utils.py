@@ -16,9 +16,11 @@ WEIGHT_INITIALIZERS = {
     'weights': 'glorot_uniform',
     'offset': 'zeros',
     'gamma': 'ones',
+    'scale': 'ones',
     'beta': 'zeros',
     'mean': 'zeros',
     'variance': 'ones',
+    'stdev': 'ones',
     'kernel': 'glorot_uniform',
     'bias': 'zeros',
     'depth_kernel': 'glorot_uniform',
@@ -36,6 +38,21 @@ def log_summary(x, msg):
         return tf.compat.v1.Print(x, summary, summarize=1024, message=msg)
 
     return kl.Lambda(summary_function)(x)
+
+def variable(value, is_training, datatype=tf.float32):
+    return tf.Variable(initial_value=value,
+                       trainable=is_training,
+                       dtype=datatype)
+
+def constant(value, datatype=tf.float32):
+    return tf.constant(value, dtype=datatype)
+
+def transpose(amatrix):
+    arr = np.array(amatrix)
+    return np.transpose(arr).tolist()
+
+def shape(tensor):
+    return np.array(tensor.get_shape().as_list(), dtype=np.float32)
 
 def activation_function(params):
     afn = params.get('activation_function', None)
@@ -57,7 +74,7 @@ def initializer_map(params):
             if weights in ['zeros', 'ones']:
                 imap[k] = weights
             else:
-                random_seed = params['seed']
+                random_seed = params.get('seed', 0)
                 assert random_seed is not None
                 imap[k] = INITIALIZERS[weights](seed=random_seed)
         elif weights is not None:
@@ -86,18 +103,3 @@ def propagate(layers, inputs):
             next_inputs = layer(next_inputs)
 
     return next_inputs
-
-def variable(value, is_training, datatype=tf.float32):
-    return tf.Variable(initial_value=value,
-                       trainable=is_training,
-                       dtype=datatype)
-
-def constant(value, datatype=tf.float32):
-    return tf.constant(value, dtype=datatype)
-
-def transpose(amatrix):
-    arr = np.array(amatrix)
-    return np.transpose(arr).tolist()
-
-def shape(tensor):
-    return np.array(tensor.get_shape().as_list(), dtype=np.float32)

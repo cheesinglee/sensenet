@@ -32,15 +32,21 @@ class LegacyBlock(tf.keras.layers.Layer):
 def legacy(params):
     dense_params = dict(params)
 
-    # Needs converting from old format
-    dense_params['weights'] = transpose(dense_params['weights'])
+    if not isinstance(params['weights'], str):
+        # Needs converting from old format
+        dense_params['weights'] = transpose(dense_params['weights'])
+
     dense_params['beta'] = dense_params['offset']
     dense_params['gamma'] = dense_params['scale']
 
     if params['stdev'] is not None:
-        variance = np.square(np.array(params['stdev'])) - 1e-3
-        dense_params['variance'] = variance.tolist()
-        dense_params['offset'] = np.zeros(np.array(variance.shape)).tolist()
+        if isinstance(params['stdev'], str):
+            dense_params['variance'] = 'ones'
+            dense_params['offset'] = 'zeros'
+        else:
+            variance = np.square(np.array(params['stdev'])) - 1e-3
+            dense_params['variance'] = variance.tolist()
+            dense_params['offset'] = np.zeros(np.array(variance.shape)).tolist()
 
         return LegacyBlock(dense_params)
     else:

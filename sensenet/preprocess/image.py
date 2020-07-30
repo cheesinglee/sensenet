@@ -8,6 +8,19 @@ from sensenet.accessors import get_image_shape
 from sensenet.layers.utils import constant, propagate
 from sensenet.layers.construct import layer_sequence
 
+def resize_and_pad(image, dims):
+    img_shape = tf.shape(image)[:2].numpy()
+    y_scale = float(dims[0]) / img_shape[0]
+    x_scale = float(dims[1]) / img_shape[1]
+    out_shape = [int(round(d * min(x_scale, y_scale))) for d in img_shape]
+
+    assert dims[0] == out_shape[0] or dims[1] == out_shape[1]
+
+    pad = [[0, d - os] for d, os in zip(dims, out_shape)] + [[0, 0]]
+    img = tf.image.resize(image, out_shape, method='nearest')
+
+    return tf.pad(img, pad)
+
 def get_image_reader_fn(image_shape, input_format, prefix):
     dims = tf.constant(image_shape[1:3], tf.int32)
     nchannels = image_shape[-1]
