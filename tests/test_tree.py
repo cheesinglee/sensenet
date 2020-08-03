@@ -119,7 +119,7 @@ def test_predictions():
     sk_preds = ensemble.predict_proba(points)
 
     trees = trees_to_list(ensemble)
-    forest = DecisionForest(trees, 3)
+    forest = DecisionForest(trees)
     inten = tf.keras.Input((4,), dtype=tf.float32)
     outten = forest(inten)
     model = tf.keras.Model(inputs=inten, outputs=outten)

@@ -4,7 +4,6 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 np = sensenet.importers.import_numpy()
 
-from sensenet.accessors import number_of_classes
 from sensenet.layers.utils import constant, transpose
 
 def to_graph(root, inputs, noutputs):
@@ -73,8 +72,17 @@ class DecisionTree(tf.keras.layers.Layer):
         return to_graph(self._tree, inputs, self._noutputs)
 
 class DecisionForest(tf.keras.layers.Layer):
-    def __init__(self, trees, noutputs):
+    def __init__(self, trees):
         super(DecisionForest, self).__init__()
+
+        # Get number of outputs
+        leaf_node = trees[0]
+
+        while len(leaf_node) > 2:
+            leaf_node = leaf_node[2]
+
+        assert len(leaf_node) == 2 and leaf_node[-1] is None
+        noutputs = len(leaf_node[0])
 
         self._trees = []
 
@@ -99,13 +107,12 @@ class DecisionForest(tf.keras.layers.Layer):
 class ForestPreprocessor(tf.keras.layers.Layer):
     def __init__(self, model):
         super(ForestPreprocessor, self).__init__()
-        noutputs = number_of_classes(model)
 
         self._forests = []
         self._ranges = []
 
         for input_range, trees in model['trees']:
-            self._forests.append([input_range, DecisionForest(trees, noutputs)])
+            self._forests.append([input_range, DecisionForest(trees)])
 
     def call(self, inputs):
         all_preds = []
