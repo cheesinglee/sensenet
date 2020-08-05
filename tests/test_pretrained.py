@@ -93,27 +93,8 @@ def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
 
     for pred in [file_pred, pixel_pred]:
         boxes, scores, classes = pred
-        assert len(boxes[0]) == nboxes
-        assert sorted(set(classes[0])) == sorted(class_list), str(set(classes[0]))
+        assert len(boxes) == len(scores) == nboxes, len(boxes)
+        assert sorted(set(classes)) == sorted(class_list), classes
 
-def test_yolov3():
-    detect_bounding_boxes('yolov3', 6, [0, 60, 53], 0.6)
-
-def test_tinyyolov3():
-    detect_bounding_boxes('tinyyolov3', 3, [0, 53], 0.4)
-
-def test_temp_tinyyolov4():
-    with open('tinyyolov4.json', 'r') as fin:
-        network = json.load(fin)
-
-    extras = {
-        'image_path_prefix': 'tests/data/images/',
-        'input_image_format': 'file',
-        'load_pretrained_weights': False,
-        'bounding_box_threshold': 0.4
-    }
-
-    image_detector = image_model(network, extras)
-    file_pred = image_detector.predict([['pizza_people.jpg']])
-
-    print(file_pred)
+def test_tinyyolov4():
+    detect_bounding_boxes('tinyyolov4', 5, [0, 53], 0.4)
