@@ -64,7 +64,7 @@ def test_simple_tree_prediction():
     # paths = to_paths(leaves)
     # outputs = propagate(paths, np.array(test_points, dtype=np.float32))
 
-    tree = DecisionTree(test_tree, 3)
+    tree = DecisionTree(test_tree)
     preds1 = tree(constant(test_points))
     preds2 = tree(constant(test_points))
 

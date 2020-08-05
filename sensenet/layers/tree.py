@@ -22,7 +22,7 @@ def into_arrays(node, all_nodes, outputs):
         into_arrays(node[3], all_nodes, outputs)
 
 class DecisionNode(tf.keras.layers.Layer):
-    def __init__(self, tree, noutputs):
+    def __init__(self, tree):
         super(DecisionNode, self).__init__()
 
         assert len(tree) == 2 and tree[-1] is None
@@ -35,7 +35,7 @@ class DecisionNode(tf.keras.layers.Layer):
         return tf.tile(self._output_tensor, [tf.shape(inputs)[0], 1])
 
 class DecisionTree(tf.keras.layers.Layer):
-    def __init__(self, tree, noutputs):
+    def __init__(self, tree):
         super(DecisionTree, self).__init__()
 
         node_list = []
@@ -62,26 +62,16 @@ class DecisionForest(tf.keras.layers.Layer):
     def __init__(self, trees):
         super(DecisionForest, self).__init__()
 
-        # Get number of outputs
-        leaf_node = trees[0]
-
-        while len(leaf_node) > 2:
-            leaf_node = leaf_node[2]
-
-        assert len(leaf_node) == 2 and leaf_node[-1] is None
-        noutputs = len(leaf_node[0])
-
         self._trees = []
 
         for tree in trees:
             if len(tree) == 2 and tree[-1] is None:
-                self._trees.append(DecisionNode(tree, noutputs))
+                self._trees.append(DecisionNode(tree))
             else:
-                self._trees.append(DecisionTree(tree, noutputs))
+                self._trees.append(DecisionTree(tree))
 
     def call(self, inputs):
         all_preds = []
-        nrows = tf.shape(inputs)[0]
 
         for tree in self._trees:
             preds = tree(inputs)
