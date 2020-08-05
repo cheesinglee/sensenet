@@ -1,4 +1,5 @@
 import json
+import sys
 import time
 import random
 
@@ -109,25 +110,35 @@ def trees_to_list(ensemble):
     return jensemble
 
 def test_predictions():
-    X, y = load_dataset('tests/data/iris.json.gz')
-    points = X = X.astype(np.float32)
-    ensemble = skens.RandomForestClassifier(n_estimators=32,
-                                            n_jobs=-1,
-                                            random_state=0)
+    X, y = load_dataset('tests/data/diabetes.json.gz')
+    X = X.astype(np.float32)
 
+    ensemble = skens.RandomForestClassifier(n_estimators=64, random_state=0)
     ensemble.fit(X, y)
+
+    points = np.tile(X, (256, 1))
+    assert points.shape[0] > 128000
+
+    start = time.time()
     sk_preds = ensemble.predict_proba(points)
+    sk_time = time.time() - start
 
     trees = trees_to_list(ensemble)
     forest = DecisionForest(trees)
-    inten = tf.keras.Input((4,), dtype=tf.float32)
+    inten = tf.keras.Input((8,), dtype=tf.float32)
     outten = forest(inten)
     model = tf.keras.Model(inputs=inten, outputs=outten)
+
+    start = time.time()
     mod_preds = model(points).numpy()
+    tf_time = time.time() - start
+
+    sys.stdout.write('sk: %.3f / tf: %.3f ... ' % (sk_time, tf_time))
+    sys.stdout.flush()
 
     assert mod_preds.shape == sk_preds.shape
 
     # Not all of these are going to be right; there are strange floating
     # point things between scikit and Tensorflow, but it's not
     # important for this test.
-    assert np.sum(mod_preds == sk_preds) > len(mod_preds.flatten()) * 0.95
+    assert np.sum(mod_preds == sk_preds) > len(mod_preds.flatten()) * 0.99

@@ -5,7 +5,7 @@ import tensorflow as tf
 from os import path
 from setuptools import setup, Extension, find_packages
 
-from sensenet import __version__
+from sensenet import __version__, __tree_ext_prefix__
 
 here = path.abspath(path.dirname(__file__))
 
@@ -13,7 +13,7 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.md'), 'r') as f:
     long_description = f.read()
 
-tree_module = Extension('tf_tree',
+tree_module = Extension(__tree_ext_prefix__,
                         define_macros = [('MAJOR_VERSION', '0'),
                                          ('MINOR_VERSION', '1')],
                         include_dirs = [tf.sysconfig.get_include()],

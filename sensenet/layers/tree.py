@@ -3,6 +3,7 @@ import collections
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 np = sensenet.importers.import_numpy()
+tl = sensenet.importers.import_bigml_treelib()
 
 from sensenet.layers.utils import constant, transpose
 
@@ -48,6 +49,35 @@ def to_graph(root, inputs, noutputs):
 
     return outputs
 
+def to_arrays(node, all_nodes, outputs):
+    if len(node) == 2 and node[-1] is None:
+        all_nodes.append([-1, -1, len(outputs), len(outputs)])
+        outputs.append(list(node[0]))
+    else:
+        this_node = [node[0], node[1], 0, 0]
+        all_nodes.append(this_node)
+
+        this_node[2] = len(all_nodes)
+        to_arrays(node[2], all_nodes, outputs)
+
+        this_node[3] = len(all_nodes)
+        to_arrays(node[3], all_nodes, outputs)
+
+def tree_to_arrays(root):
+    node_list = []
+    outputs = []
+
+    to_arrays(root, node_list, outputs)
+
+    return {
+        'split_indices': [n[0] for n in node_list],
+        'split_values': [n[1] for n in node_list],
+        'left_indices': [n[2] for n in node_list],
+        'right_indices': [n[3] for n in node_list],
+        'outputs': outputs
+    }
+
+
 class DecisionNode(tf.keras.layers.Layer):
     def __init__(self, tree, noutputs):
         super(DecisionNode, self).__init__()
@@ -65,11 +95,22 @@ class DecisionTree(tf.keras.layers.Layer):
     def __init__(self, tree, noutputs):
         super(DecisionTree, self).__init__()
 
-        self._tree = tree
-        self._noutputs = noutputs
+        node_lists = tree_to_arrays(tree)
+
+        self._si = constant(node_lists['split_indices'], tf.int32)
+        self._sv = constant(node_lists['split_values'])
+        self._left = constant(node_lists['left_indices'], tf.int32)
+        self._right = constant(node_lists['right_indices'], tf.int32)
+        self._outputs = constant(node_lists['outputs'])
 
     def call(self, inputs):
-        return to_graph(self._tree, inputs, self._noutputs)
+        out_idxs = tl.BigMLTreeify(points=inputs,
+                                   split_indices=self._si,
+                                   split_values=self._sv,
+                                   left=self._left,
+                                   right=self._right)
+
+        return tf.gather(self._outputs, tf.reshape(out_idxs, (-1,)))
 
 class DecisionForest(tf.keras.layers.Layer):
     def __init__(self, trees):
