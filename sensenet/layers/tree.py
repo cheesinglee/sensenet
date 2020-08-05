@@ -5,51 +5,9 @@ tf = sensenet.importers.import_tensorflow()
 np = sensenet.importers.import_numpy()
 tl = sensenet.importers.import_bigml_treelib()
 
-from sensenet.layers.utils import constant, transpose
+from sensenet.layers.utils import constant
 
-def to_graph(root, inputs, noutputs):
-    node_stack = collections.deque()
-    mask_stack = collections.deque()
-
-    tree = root
-    nrows = tf.shape(inputs)[0]
-    current_mask = tf.tile([True], (nrows,))
-    all_idxs = tf.range(nrows, dtype=tf.int32)
-    outputs = tf.zeros((nrows, noutputs), dtype=tf.float32)
-
-    finished = False
-
-    while not finished:
-
-        while len(tree) > 2:
-            split_index = constant(tree[0], tf.int32)
-            split_value = constant(tree[1])
-
-            less = inputs[:,split_index] <= split_value
-            left = tf.logical_and(current_mask, less)
-            right = tf.logical_and(current_mask, tf.math.logical_not(less))
-
-            node_stack.append(tree)
-            mask_stack.append(right)
-
-            tree = tree[2]
-            current_mask = left
-
-        out_idxs = tf.where(current_mask)
-        node_output = tf.reshape(constant(tree[0]), [1, -1])
-        out_preds = tf.tile(node_output, [tf.size(out_idxs), 1])
-        outputs = tf.tensor_scatter_nd_update(outputs, out_idxs, out_preds)
-
-        if node_stack:
-            tree = node_stack.pop()
-            tree = tree[3]
-            current_mask = mask_stack.pop()
-        else:
-            finished = True
-
-    return outputs
-
-def to_arrays(node, all_nodes, outputs):
+def into_arrays(node, all_nodes, outputs):
     if len(node) == 2 and node[-1] is None:
         all_nodes.append([-1, -1, len(outputs), len(outputs)])
         outputs.append(list(node[0]))
@@ -58,25 +16,10 @@ def to_arrays(node, all_nodes, outputs):
         all_nodes.append(this_node)
 
         this_node[2] = len(all_nodes)
-        to_arrays(node[2], all_nodes, outputs)
+        into_arrays(node[2], all_nodes, outputs)
 
         this_node[3] = len(all_nodes)
-        to_arrays(node[3], all_nodes, outputs)
-
-def tree_to_arrays(root):
-    node_list = []
-    outputs = []
-
-    to_arrays(root, node_list, outputs)
-
-    return {
-        'split_indices': [n[0] for n in node_list],
-        'split_values': [n[1] for n in node_list],
-        'left_indices': [n[2] for n in node_list],
-        'right_indices': [n[3] for n in node_list],
-        'outputs': outputs
-    }
-
+        into_arrays(node[3], all_nodes, outputs)
 
 class DecisionNode(tf.keras.layers.Layer):
     def __init__(self, tree, noutputs):
@@ -95,18 +38,21 @@ class DecisionTree(tf.keras.layers.Layer):
     def __init__(self, tree, noutputs):
         super(DecisionTree, self).__init__()
 
-        node_lists = tree_to_arrays(tree)
+        node_list = []
+        outputs = []
 
-        self._si = constant(node_lists['split_indices'], tf.int32)
-        self._sv = constant(node_lists['split_values'])
-        self._left = constant(node_lists['left_indices'], tf.int32)
-        self._right = constant(node_lists['right_indices'], tf.int32)
-        self._outputs = constant(node_lists['outputs'])
+        into_arrays(tree, node_list, outputs)
+
+        self._split_indices = constant([n[0] for n in node_list], tf.int32)
+        self._split_values = constant([n[1] for n in node_list])
+        self._left = constant([n[2] for n in node_list], tf.int32)
+        self._right = constant([n[3] for n in node_list], tf.int32)
+        self._outputs = constant(outputs)
 
     def call(self, inputs):
         out_idxs = tl.BigMLTreeify(points=inputs,
-                                   split_indices=self._si,
-                                   split_values=self._sv,
+                                   split_indices=self._split_indices,
+                                   split_values=self._split_values,
                                    left=self._left,
                                    right=self._right)
 
