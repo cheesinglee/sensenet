@@ -54,11 +54,14 @@ class BoxLocator(tf.keras.layers.Layer):
     def reshape3d(self, x):
         return tf.reshape(x, (tf.shape(x)[0], -1, tf.shape(x)[-1]))
 
-    def call(self, inputs):
+    def call(self, predictions):
         box_bounds = []
         box_scores = []
 
-        for map_boxes, map_scores in inputs:
+        for _, bboxes in predictions:
+            map_boxes = bboxes[..., :4]
+            map_scores = bboxes[..., 4:5] * bboxes[..., 5:]
+
             box_bounds.append(self.reshape3d(map_boxes))
             box_scores.append(self.reshape3d(map_scores))
 

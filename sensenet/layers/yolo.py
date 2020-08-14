@@ -57,7 +57,7 @@ class Yolo(tf.keras.layers.Layer):
         pred_conf = tf.sigmoid(raw_conf)
         pred_prob = tf.sigmoid(raw_prob)
 
-        return pred_xywh, pred_prob * pred_conf
+        return tf.concat([pred_xywh, pred_conf, pred_prob], axis=-1)
 
     def call(self, inputs):
         outputs = []
@@ -77,6 +77,8 @@ class Yolo(tf.keras.layers.Layer):
 
         for i, decoding_info, layers in self._branches:
             features = propagate(layers, outputs[i])
-            predictions.append(self.decode_outputs(features, decoding_info))
+            bboxes = self.decode_outputs(features, decoding_info)
+
+            predictions.append([features, bboxes])
 
         return predictions
