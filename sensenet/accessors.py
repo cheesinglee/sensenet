@@ -1,4 +1,4 @@
-from sensenet.constants import NUMERIC, CATEGORICAL, BOUNDING_BOX, MASKS
+from sensenet.constants import NUMERIC, CATEGORICAL, BOUNDING_BOX
 
 def get_image_shape(anobject):
     if type(anobject) == dict:
@@ -38,12 +38,6 @@ def number_of_classes(model):
         return len(outex['values'])
     else:
         raise ValueError('Output exposition is type "%s"' % outex['type'])
-
-def get_anchors(network):
-    base = network['metadata']['base_image_network']
-    anchors = network['metadata']['anchors']
-
-    return [[anchors[idx] for idx in mask] for mask in MASKS[base]]
 
 def get_layer(model, layer_type, names):
     for layer in model.layers:

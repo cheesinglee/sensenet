@@ -3,8 +3,6 @@ import gzip
 import json
 import requests
 
-from sensenet.constants import ANCHORS
-
 USER_HOME = os.path.expanduser('~')
 CACHE_DIRECTORY = os.path.join(USER_HOME, '.bigml_sensenet')
 CNN_METADATA_FILE = 'sensenet_metadata.json'

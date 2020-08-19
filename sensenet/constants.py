@@ -38,27 +38,7 @@ MAX_OBJECTS = 32
 IGNORE_THRESHOLD = 0.5
 IOU_THRESHOLD = 0.5
 
-# Which YOLO bounding boxes to use at each scale
-MASKS = {
-    'yolov3': [[6,7,8], [3,4,5], [0,1,2]],
-    'tinyyolov3': [[3,4,5], [0,1,2]]
-}
-
-# Default sizes for prospective YOLO bounding boxes
-ANCHORS = {
-    'yolov3': [[10, 13],
-               [16, 30],
-               [33, 23],
-               [30, 61],
-               [62, 45],
-               [59, 119],
-               [116 ,90],
-               [156 ,198],
-               [373 ,326]],
-    'tinyyolov3': [[10, 14],
-                   [23, 27],
-                   [37, 58],
-                   [81, 82],
-                   [135, 169],
-                   [344, 319]]
-}
+# Names for YOLO outputs from each branch for training
+CONF_FORMAT = 'scale_%d_confidence_outputs'
+PROB_FORMAT = 'scale_%d_probability_outputs'
+GIOU_FORMAT = 'scale_%d_giou_outputs'

@@ -5,7 +5,8 @@ OPTIONAL = {
     'iou_threshold': [1e-8, 1.0],
     'load_pretrained_weights': bool,
     'max_objects': int,
-    'regression_normalize': bool
+    'regression_normalize': bool,
+    'yolo_training_outputs': bool
 }
 
 REQUIRED = {}
