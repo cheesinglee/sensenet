@@ -36,5 +36,11 @@ def image_feature_extractor(model):
     return tf.keras.Model(inputs=image_input, outputs=features)
 
 def image_layers(model):
-    preprocessor = get_layer(model, Preprocessor, None)
-    return preprocessor.get_image_layers()
+    try:
+        yolo = get_layer(model, Yolo, None)
+        layers = yolo._trunk
+    except ValueError:
+        preprocessor = get_layer(model, Preprocessor, None)
+        layers = preprocessor.get_image_layers()
+
+    return layers
