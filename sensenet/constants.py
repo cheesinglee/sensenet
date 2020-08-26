@@ -37,8 +37,3 @@ MAX_BOUNDING_BOXES = 16
 MAX_OBJECTS = 32
 IGNORE_THRESHOLD = 0.5
 IOU_THRESHOLD = 0.5
-
-# Names for YOLO outputs from each branch for training
-CONF_FORMAT = 'scale_%d_confidence_outputs'
-PROB_FORMAT = 'scale_%d_probability_outputs'
-GIOU_FORMAT = 'scale_%d_giou_outputs'

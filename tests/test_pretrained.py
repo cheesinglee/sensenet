@@ -6,7 +6,6 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.constants import CATEGORICAL, IMAGE_PATH, BOUNDING_BOX
-from sensenet.constants import CONF_FORMAT, PROB_FORMAT, GIOU_FORMAT
 
 from sensenet.accessors import get_image_shape
 from sensenet.load import load_points
@@ -83,29 +82,6 @@ def test_resnet18():
 
 def test_mobilenetv2():
     classify('mobilenetv2', 0.88)
-
-def test_yolo_training_outputs():
-    extras = dict(EXTRA_PARAMS)
-    extras['yolo_training_outputs'] = True
-
-    model = pretrained_image_model('tinyyolov4', extras)
-    outputs = model.predict([['pizza_people.jpg'], ['pizza_people.jpg']])
-
-    assert len(outputs) == 6, outputs.keys()
-
-    for k in outputs:
-        assert len(outputs[k].shape) == 5
-        assert outputs[k].shape[0] == 2
-
-    assert outputs[CONF_FORMAT % 0].shape[-1] == 6
-    assert outputs[CONF_FORMAT % 1].shape[-1] == 6
-    assert outputs[PROB_FORMAT % 0].shape[-1] > 6
-    assert outputs[PROB_FORMAT % 1].shape[-1] > 6
-    assert outputs[GIOU_FORMAT % 0].shape[-1] > 6
-    assert outputs[GIOU_FORMAT % 1].shape[-1] > 6
-
-    assert outputs[PROB_FORMAT % 0].shape == outputs[GIOU_FORMAT % 0].shape
-    assert outputs[PROB_FORMAT % 1].shape == outputs[GIOU_FORMAT % 1].shape
 
 def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
     image_detector = create_image_model(network_name, threshold, 'file')

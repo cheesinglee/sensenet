@@ -5,14 +5,11 @@ from sensenet.accessors import get_image_shape
 from sensenet.layers.construct import LAYER_FUNCTIONS
 from sensenet.layers.utils import make_sequence, propagate
 
-class Yolo(tf.keras.layers.Layer):
+class YoloTrunk(tf.keras.layers.Layer):
     def __init__(self, network, nclasses):
-        super(Yolo, self).__init__()
+        super(YoloTrunk, self).__init__()
 
-        self._nclasses = nclasses
-        self._input_size = get_image_shape(network)[1]
         self._trunk = []
-        self._branches = []
         self._concatenations = {}
 
         for i, layer in enumerate(network['layers'][:-1]):
@@ -21,6 +18,30 @@ class Yolo(tf.keras.layers.Layer):
 
             if ltype == 'concatenate':
                 self._concatenations[i] = layer['inputs']
+
+    def call(self, inputs):
+        outputs = []
+        printed = False
+        next_inputs = inputs
+
+        for i, layer in enumerate(self._trunk):
+            if i in self._concatenations:
+                inputs = self._concatenations[i]
+                next_inputs = layer([outputs[j] for j in inputs])
+            else:
+                next_inputs = layer(next_inputs)
+
+            outputs.append(next_inputs)
+
+        return outputs
+
+class YoloBranches(tf.keras.layers.Layer):
+    def __init__(self, network, nclasses):
+        super(YoloBranches, self).__init__()
+
+        self._nclasses = nclasses
+        self._input_size = get_image_shape(network)[1]
+        self._branches = []
 
         assert network['layers'][-1]['type'] == 'yolo_output_branches'
         out_branches = network['layers'][-1]
@@ -60,23 +81,10 @@ class Yolo(tf.keras.layers.Layer):
         return conv_output, tf.concat([pred_xywh, pred_conf, pred_prob], axis=-1)
 
     def call(self, inputs):
-        outputs = []
-        printed = False
-        next_inputs = inputs
-
-        for i, layer in enumerate(self._trunk):
-            if i in self._concatenations:
-                inputs = self._concatenations[i]
-                next_inputs = layer([outputs[j] for j in inputs])
-            else:
-                next_inputs = layer(next_inputs)
-
-            outputs.append(next_inputs)
-
         predictions = []
 
         for i, decoding_info, layers in self._branches:
-            features = propagate(layers, outputs[i])
+            features = propagate(layers, inputs[i])
             predicted_values = self.decode_outputs(features, decoding_info)
 
             predictions.append(predicted_values)

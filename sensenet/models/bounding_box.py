@@ -5,9 +5,8 @@ kl = sensenet.importers.import_keras_layers()
 
 from sensenet.constants import MAX_BOUNDING_BOXES, MAX_OBJECTS
 from sensenet.constants import IGNORE_THRESHOLD, IOU_THRESHOLD
-from sensenet.constants import CONF_FORMAT, PROB_FORMAT, GIOU_FORMAT
 from sensenet.accessors import number_of_classes, get_image_shape
-from sensenet.layers.yolo import Yolo
+from sensenet.layers.yolo import YoloTrunk, YoloBranches
 from sensenet.models.settings import ensure_settings
 from sensenet.preprocess.image import ImageReader, ImageLoader
 from sensenet.pretrained import load_pretrained_weights
@@ -86,21 +85,6 @@ class BoxLocator(tf.keras.layers.Layer):
 
         return vboxes, scores[0,:valid[0]], classes[0,:valid[0]]
 
-def training_outputs(yolo_predictions):
-    outputs = {}
-
-    for i, prediction in enumerate(yolo_predictions):
-        raw, boxes = prediction
-        boxes_xywhc = boxes[:, :, :, :, 0:5]
-        raw_conf = raw[:, :, :, :, 4:5]
-        conf_out = tf.concat([boxes_xywhc, raw_conf], -1)
-
-        outputs[CONF_FORMAT % i] = conf_out
-        outputs[PROB_FORMAT % i] = raw
-        outputs[GIOU_FORMAT % i] = boxes
-
-    return outputs
-
 def box_detector(model, input_settings):
     settings = ensure_settings(input_settings)
 
@@ -117,16 +101,14 @@ def box_detector(model, input_settings):
 
     nclasses = number_of_classes(model)
     loader = ImageLoader(network)
-    yolo = Yolo(network, nclasses)
+
+    yolo_trunk = YoloTrunk(network, nclasses)
+    yolo_branches = YoloBranches(network, nclasses)
+    locator = BoxLocator(network, nclasses, settings)
 
     image = loader(raw_image)
-    predictions = yolo(image)
-
-    # Boxes, scores, and classes
-    if settings.yolo_training_outputs:
-        all_outputs = training_outputs(predictions)
-    else:
-        locator = BoxLocator(network, nclasses, settings)
-        all_outputs = locator(predictions)
+    layer_outputs = yolo_trunk(image)
+    predictions = yolo_branches(layer_outputs)
+    all_outputs = locator(predictions)
 
     return tf.keras.Model(inputs=image_input, outputs=all_outputs)

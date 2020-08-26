@@ -4,6 +4,7 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
 from sensenet.accessors import get_layer
+from sensenet.layers.yolo import YoloTrunk
 from sensenet.models.bounding_box import box_detector
 from sensenet.models.deepnet import deepnet_model
 from sensenet.models.settings import ensure_settings
@@ -37,8 +38,8 @@ def image_feature_extractor(model):
 
 def image_layers(model):
     try:
-        yolo = get_layer(model, Yolo, None)
-        layers = yolo._trunk
+        yolo_trunk = get_layer(model, YoloTrunk, None)
+        layers = yolo_trunk._trunk
     except ValueError:
         preprocessor = get_layer(model, Preprocessor, None)
         layers = preprocessor.get_image_layers()
