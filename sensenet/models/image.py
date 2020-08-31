@@ -1,7 +1,7 @@
-import math
-
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
+
+import math
 
 from sensenet.accessors import get_layer
 from sensenet.layers.yolo import YoloTrunk

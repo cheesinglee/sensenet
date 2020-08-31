@@ -7,6 +7,7 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 kl = sensenet.importers.import_keras_layers()
 
+from sensenet.layers.dropblock import DropBlock2D
 from sensenet.layers.utils import initializer_map, activation_function
 
 def get_units(params):
@@ -45,6 +46,8 @@ def dropout(params):
         return kl.Dropout(rate=rate, seed=42)
     elif dtype == 'alpha':
         return kl.AlphaDropout(rate=rate, seed=42)
+    elif dtype == 'block':
+        return DropBlock2D(rate=rate, seed=42)
     else:
         raise ValueError('"%s" is not a valid dropout type!' % dtype)
 

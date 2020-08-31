@@ -3,8 +3,9 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 kl = sensenet.importers.import_keras_layers()
 
-from sensenet.layers.construct import layer_sequence
 from sensenet.layers.block import BlockLayer
+from sensenet.layers.construct import layer_sequence
+from sensenet.preprocess.image import get_image_reader_fn
 
 from .utils import make_model
 
@@ -136,3 +137,35 @@ def test_create_residual():
         weights, offset = layer.get_weights()
         assert weights.shape == (6, 6)
         assert offset.shape == (6,)
+
+def show_outputs(images, reader, model):
+    import matplotlib.pyplot as plt
+
+    plt.figure(figsize=(10,10))
+
+    for n, image in enumerate(images[:16]):
+        ax = plt.subplot(4, 4, n + 1)
+        img = np.expand_dims(reader(image), axis=0)
+        img_pred = np.minimum(255, model(img, training=True)[0].numpy())
+
+        plt.imshow(np.minimum(255, img_pred.astype(np.uint8)))
+        plt.axis('off')
+
+    plt.show()
+
+def test_dropblock():
+    image_shape = (None, 128, 128, 3)
+    network = {
+        'layers': [{'type': 'dropout', 'dropout_type': 'block', 'rate': 0.1}]
+    }
+
+    reader = get_image_reader_fn(image_shape, 'file', 'tests/data/images')
+    lseq = layer_sequence(network)
+    model = make_model(lseq, image_shape[1:])
+    pizzas = ['pizza_people.jpg'] * 16
+
+    # show_outputs(pizzas, reader, model)
+
+    for image in pizzas:
+        img = np.expand_dims(reader(image), axis=0)
+        model(img, training=True)
