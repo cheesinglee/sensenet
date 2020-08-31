@@ -2,7 +2,7 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
 class DropBlock2D(tf.keras.layers.Layer):
-    def __init__(self, rate=0.5, block_size=3, seed=42, **kwargs):
+    def __init__(self, rate=0.5, block_size=5, seed=42, **kwargs):
         super(DropBlock2D, self).__init__(**kwargs)
 
         assert 0 < rate < 1
