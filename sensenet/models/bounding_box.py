@@ -8,7 +8,8 @@ from sensenet.constants import SCORE_THRESHOLD, IGNORE_THRESHOLD, IOU_THRESHOLD
 from sensenet.accessors import number_of_classes, get_image_shape
 from sensenet.layers.yolo import YoloTrunk, YoloBranches
 from sensenet.models.settings import ensure_settings
-from sensenet.preprocess.image import ImageReader, ImageLoader
+from sensenet.preprocess.image import BoundingBoxImageReader, ImageLoader
+from sensenet.preprocess.image import scale_for_box
 from sensenet.pretrained import load_pretrained_weights
 
 class BoxLocator(tf.keras.layers.Layer):
@@ -22,7 +23,7 @@ class BoxLocator(tf.keras.layers.Layer):
         self._iou_threshold = settings.iou_threshold or IOU_THRESHOLD
         self._max_objects = settings.max_objects or MAX_OBJECTS
 
-    def filter_boxes(self, box_xywh, scores):
+    def filter_boxes(self, box_xywh, scores, original_shape):
         scores_max = tf.math.reduce_max(scores, axis=-1)
         mask = scores_max >= min(0.2, self._threshold)
 
@@ -49,12 +50,24 @@ class BoxLocator(tf.keras.layers.Layer):
             box_maxes[..., 1:2]  # x_max
         ], axis=-1)
 
-        return boxes, pred_conf
+        # Here we're assuming that we only get one image at a time as input
+        # I'm not sure this can be vectorized, given the flattening that
+        # happens when we mask above
+        image_shape = original_shape[0]
+        x_in = image_shape[0]
+        y_in = image_shape[1]
+        scale = scale_for_box(image_shape, tf.cast(input_shape, tf.float32))
+
+        amask = tf.logical_and(box_xy[..., 0] < x_in, box_xy[..., 1] < y_in)
+        boxes = tf.reshape(tf.boolean_mask(boxes, amask), boxes_shape)
+        pred_conf = tf.reshape(tf.boolean_mask(pred_conf, amask), conf_shape)
+
+        return boxes * scale, pred_conf
 
     def reshape3d(self, x):
         return tf.reshape(x, (tf.shape(x)[0], -1, tf.shape(x)[-1]))
 
-    def call(self, predictions):
+    def call(self, predictions, original_shape):
         box_bounds = []
         box_scores = []
 
@@ -68,7 +81,7 @@ class BoxLocator(tf.keras.layers.Layer):
         boxes = tf.concat(box_bounds, axis=1)
         scores = tf.concat(box_scores, axis=1)
 
-        boxes, scores = self.filter_boxes(boxes, scores)
+        boxes, scores = self.filter_boxes(boxes, scores, original_shape)
         sc_shape = tf.shape(scores)
 
         boxes, scores, classes, valid = tf.image.combined_non_max_suppression(
@@ -89,15 +102,15 @@ def box_detector(model, input_settings):
     settings = ensure_settings(input_settings)
 
     network = model['image_network']
-    reader = ImageReader(network, settings)
+    reader = BoundingBoxImageReader(network, settings)
 
     if settings.input_image_format == 'pixel_values':
         image_shape = get_image_shape(model)
         image_input = kl.Input(image_shape[1:], dtype=tf.float32, name='image')
-        raw_image = reader(image_input)
+        raw_image, original_shape = reader(image_input)
     else:
         image_input = kl.Input((1,), dtype=tf.string, name='image')
-        raw_image = reader(image_input[:,0])
+        raw_image, original_shape = reader(image_input[:,0])
 
     nclasses = number_of_classes(model)
     loader = ImageLoader(network)
@@ -109,6 +122,6 @@ def box_detector(model, input_settings):
     image = loader(raw_image)
     layer_outputs = yolo_trunk(image)
     predictions = yolo_branches(layer_outputs)
-    all_outputs = locator(predictions)
+    all_outputs = locator(predictions, tf.cast(original_shape, tf.float32))
 
     return tf.keras.Model(inputs=image_input, outputs=all_outputs)

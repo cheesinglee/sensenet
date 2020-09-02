@@ -94,6 +94,7 @@ def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
 
     for pred in [file_pred, pixel_pred]:
         boxes, scores, classes = pred
+
         assert len(boxes) == len(scores) == nboxes, len(boxes)
         assert sorted(set(classes)) == sorted(class_list), classes
 
