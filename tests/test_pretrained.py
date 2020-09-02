@@ -100,3 +100,17 @@ def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
 
 def test_tinyyolov4():
     detect_bounding_boxes('tinyyolov4', 5, [0, 53], 0.4)
+
+def test_scaling():
+    detector = create_image_model('tinyyolov4', 0.5, 'file')
+    pred = detector.predict([['strange_car.png']])
+
+    boxes, scores, classes = pred
+
+    assert 550 < boxes[0][0] < 600, boxes[0]
+    assert 220 < boxes[0][1] < 270, boxes[0]
+    assert 970 < boxes[0][2] < 1020, boxes[0]
+    assert 370 < boxes[0][3] < 420, boxes[0]
+
+    assert scores[0] > 0.9
+    assert classes[0] == 2

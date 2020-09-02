@@ -9,7 +9,6 @@ from sensenet.accessors import number_of_classes, get_image_shape
 from sensenet.layers.yolo import YoloTrunk, YoloBranches
 from sensenet.models.settings import ensure_settings
 from sensenet.preprocess.image import BoundingBoxImageReader, ImageLoader
-from sensenet.preprocess.image import scale_for_box
 from sensenet.pretrained import load_pretrained_weights
 
 class BoxLocator(tf.keras.layers.Layer):
@@ -23,7 +22,7 @@ class BoxLocator(tf.keras.layers.Layer):
         self._iou_threshold = settings.iou_threshold or IOU_THRESHOLD
         self._max_objects = settings.max_objects or MAX_OBJECTS
 
-    def filter_boxes(self, box_xywh, scores, original_shape):
+    def filter_boxes(self, box_xywh, scores, limits):
         scores_max = tf.math.reduce_max(scores, axis=-1)
         mask = scores_max >= min(0.2, self._threshold)
 
@@ -50,19 +49,13 @@ class BoxLocator(tf.keras.layers.Layer):
             box_maxes[..., 1:2]  # x_max
         ], axis=-1)
 
-        # Here we're assuming that we only get one image at a time as input
-        # I'm not sure this can be vectorized, given the flattening that
-        # happens when we mask above
-        image_shape = original_shape[0]
-        x_in = image_shape[0]
-        y_in = image_shape[1]
-        scale = scale_for_box(image_shape, tf.cast(input_shape, tf.float32))
+        ylim, xlim = limits[0], limits[1]
 
-        amask = tf.logical_and(box_xy[..., 0] < x_in, box_xy[..., 1] < y_in)
+        amask = tf.logical_and(box_xy[..., 0] < xlim, box_xy[..., 1] < ylim)
         boxes = tf.reshape(tf.boolean_mask(boxes, amask), boxes_shape)
         pred_conf = tf.reshape(tf.boolean_mask(pred_conf, amask), conf_shape)
 
-        return boxes * scale, pred_conf
+        return boxes, pred_conf
 
     def reshape3d(self, x):
         return tf.reshape(x, (tf.shape(x)[0], -1, tf.shape(x)[-1]))
@@ -81,7 +74,13 @@ class BoxLocator(tf.keras.layers.Layer):
         boxes = tf.concat(box_bounds, axis=1)
         scores = tf.concat(box_scores, axis=1)
 
-        boxes, scores = self.filter_boxes(boxes, scores, original_shape)
+        # Here we're assuming that we only get one image at a time as input
+        # I'm not sure this can be vectorized, given the flattening that
+        # happens when we mask above
+        max_dim = tf.reduce_max(original_shape[0][:2])
+        limits = self._input_shape * original_shape[0][:2] / max_dim
+
+        boxes, scores = self.filter_boxes(boxes, scores, limits)
         sc_shape = tf.shape(scores)
 
         boxes, scores, classes, valid = tf.image.combined_non_max_suppression(
@@ -94,7 +93,7 @@ class BoxLocator(tf.keras.layers.Layer):
         )
 
         vboxes = tf.gather(boxes[0,:valid[0],...], [1,0,3,2], axis=-1)
-        vboxes = tf.math.round(vboxes * self._input_shape[0])
+        vboxes = tf.math.round(vboxes * max_dim)
 
         return vboxes, scores[0,:valid[0]], classes[0,:valid[0]]
 
