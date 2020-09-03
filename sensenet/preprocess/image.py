@@ -15,17 +15,18 @@ def scale_for_box(input_dims, target_dims):
     return tf.math.minimum(x_scale, y_scale)
 
 def resize_and_pad(image, input_dims, target_dims):
+    # Assume both input_dims and target_dims are [h, w, channels]
     img_shape = tf.cast(input_dims, tf.float32)
     box_scale = scale_for_box(img_shape, tf.cast(target_dims, tf.float32))
     out_shape = tf.cast(tf.math.round(img_shape * box_scale), tf.int32)
 
-    pad_w = [0, target_dims[0] - out_shape[0]]
-    pad_h = [0, target_dims[1] - out_shape[1]]
+    pad_h = [0, target_dims[0] - out_shape[0]]
+    pad_w = [0, target_dims[1] - out_shape[1]]
 
     if len(image.shape) == 3:
-        pad = [pad_w, pad_h, [0, 0]]
+        pad = [pad_h, pad_w, [0, 0]]
     elif len(image.shape) == 4:
-        pad = [[0, 0], pad_w, pad_h, [0, 0]]
+        pad = [[0, 0], pad_h, pad_w, [0, 0]]
 
     img = tf.image.resize(image, out_shape, method='nearest')
 
