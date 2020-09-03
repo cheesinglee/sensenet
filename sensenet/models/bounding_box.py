@@ -3,7 +3,7 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 kl = sensenet.importers.import_keras_layers()
 
-from sensenet.constants import MAX_BOUNDING_BOXES, MAX_OBJECTS
+from sensenet.constants import MAX_OBJECTS
 from sensenet.constants import SCORE_THRESHOLD, IGNORE_THRESHOLD, IOU_THRESHOLD
 from sensenet.accessors import number_of_classes, get_image_shape
 from sensenet.layers.yolo import YoloTrunk, YoloBranches

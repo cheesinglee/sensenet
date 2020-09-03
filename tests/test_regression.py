@@ -11,7 +11,7 @@ from sensenet.layers.construct import remove_weights
 from sensenet.layers.legacy import legacy_convert
 from sensenet.layers.tree import ForestPreprocessor
 from sensenet.load import load_points
-from sensenet.models.deepnet import DeepnetWrapper
+from sensenet.models.wrappers import create_model
 from sensenet.models.settings import Settings
 from sensenet.io.save import assets_for_deepnet, write_model
 
@@ -36,7 +36,7 @@ def round_trip(settings, wrapper):
     assert len(json.dumps(short)) < max_len
 
     wrapper._model.save_weights(TEMP_WEIGHTS)
-    new_wrapper = DeepnetWrapper(short, EXTRA_PARAMS)
+    new_wrapper = create_model(short, EXTRA_PARAMS)
     new_wrapper._model.load_weights(TEMP_WEIGHTS)
 
     os.remove(TEMP_WEIGHTS)
@@ -58,11 +58,11 @@ def validate_predictions(test_artifact):
     ins = [t['input'] for t in test_points]
     outs = np.array([t['output'] for t in test_points])
 
-    model = DeepnetWrapper(test_model, EXTRA_PARAMS)
+    model = create_model(test_model, EXTRA_PARAMS)
     remodel = round_trip(test_model, model)
 
     converted = legacy_convert(test_model)
-    legacy_model = DeepnetWrapper(converted, EXTRA_PARAMS)
+    legacy_model = create_model(converted, EXTRA_PARAMS)
     legacy_remodel = round_trip(converted, legacy_model)
 
     for i, true_pred in enumerate(outs):
