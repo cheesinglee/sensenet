@@ -10,8 +10,7 @@ from sensenet.constants import CATEGORICAL, IMAGE_PATH, BOUNDING_BOX
 from sensenet.accessors import get_image_shape
 from sensenet.load import load_points
 from sensenet.models.image import pretrained_image_model, image_feature_extractor
-from sensenet.models.image import image_layers, image_model
-from sensenet.models.image import get_pretrained_network
+from sensenet.models.image import image_layers, get_pretrained_network
 from sensenet.models.settings import Settings
 from sensenet.preprocess.image import get_image_reader_fn
 

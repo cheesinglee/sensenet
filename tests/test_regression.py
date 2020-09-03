@@ -45,7 +45,7 @@ def round_trip(settings, wrapper):
     return new_wrapper
 
 def compare_predictions(model, ins, expected):
-    mod_preds = model.predict(ins)
+    mod_preds = model(ins)
     assert np.allclose(mod_preds, expected, atol=1e-7)
 
 def validate_predictions(test_artifact):
@@ -66,8 +66,8 @@ def validate_predictions(test_artifact):
     legacy_remodel = round_trip(converted, legacy_model)
 
     for i, true_pred in enumerate(outs):
-        mod_pred = model.predict([ins[i]])
-        legacy_pred = legacy_model.predict(ins[i])
+        mod_pred = model([ins[i]])
+        legacy_pred = legacy_model(ins[i])
 
         outstr = '\nPred: %s\nExpt: %s' % (str(mod_pred[0]), str(true_pred))
         legstr = '\nLegacy: %s\nExpt: %s' % (str(legacy_pred[0]), str(true_pred))

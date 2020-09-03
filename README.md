@@ -22,8 +22,9 @@ model = sensenet.models.deepnet.DeepnetWrapper(model_dict, settings)
 ```
 
 Again, `model_dict` is typically the relevant section from the
-downloaded BigML model, and `settings` is a map of optional settings
-which may contain:
+downloaded BigML model.
+
+`settings` is a map of optional settings which may contain:
 
 - `image_path_prefix`: A string directory indicating the path where
   images are to be found for image predictions.  When an image path is
@@ -31,13 +32,18 @@ which may contain:
   path.
 
 - `input_image_format`: The format of input images for the network.
-  This can be either an image file on disk (`file`) or a string
-  containing the raw image bytes (`bytes`)
+  This can be either an image file on disk (`'file'`), a string
+  containing the raw, undecoded, image file bytes (`'bytes'`) or the
+  decompressed image data represented as an array of pixel values
+  (`'pixel_values'`).  Note that this last option is only avialable
+  for models that take a single image as input, and the pixel array
+  must be resized to the expected resolution given in the model; for
+  the other two options, images are resized as they are decompressed.
 
 Once instantiated, you can use the model to make predictions:
 
 ```
-model.predict([1.0, 2.0, 3.0])
+prediction = model([1.0, 2.0, 3.0])
 ```
 
 The input point or points must be a list (or nested list) containing

@@ -51,3 +51,7 @@ def get_layer(model, layer_type, names):
         msg += 'with name in %s' % str(names)
 
     raise ValueError(msg)
+
+def is_yolo_model(network):
+    image_net = network.get('image_network', None)
+    return image_net and 'yolo' in image_net['metadata']['base_image_network']

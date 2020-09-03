@@ -4,13 +4,13 @@ kl = sensenet.importers.import_keras_layers()
 
 from sensenet.constants import IMAGE_PATH, NUMERIC, CATEGORICAL
 from sensenet.accessors import get_image_shape, get_output_exposition
-from sensenet.layers.utils import propagate
-from sensenet.layers.tree import ForestPreprocessor
+from sensenet.accessors import is_yolo_model
 from sensenet.layers.construct import layer_sequence, tree_preprocessor
+from sensenet.layers.utils import propagate
 from sensenet.load import load_points
+from sensenet.models.bounding_box import box_detector
 from sensenet.models.settings import ensure_settings
 from sensenet.preprocess.preprocessor import Preprocessor
-from sensenet.pretrained import load_pretrained_weights
 
 def instantiate_inputs(model, settings):
     preprocessors = model['preprocess']
@@ -83,12 +83,19 @@ def deepnet_model(model, input_settings):
 class DeepnetWrapper(object):
     def __init__(self, model, settings):
         self._preprocessors = model['preprocess']
-        self._model = deepnet_model(model, settings)
+
+        if is_yolo_model(model):
+            self._model = box_detector(model, settings)
+        else:
+            self._model = deepnet_model(model, settings)
 
     def predict(self, points):
-        if isinstance(points[0], list):
-            pvec = load_points(self._preprocessors, points)
-        else:
-            pvec = load_points(self._preprocessors, [points])
-
+        pvec = load_points(self._preprocessors, points)
         return self._model.predict(pvec)
+
+    def __call__(self, input_data):
+        if isinstance(input_data[0], list):
+            return self.predict(input_data)
+        else:
+            # Single unwrapped instance
+            return self.predict([input_data])

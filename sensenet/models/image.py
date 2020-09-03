@@ -3,7 +3,7 @@ tf = sensenet.importers.import_tensorflow()
 
 import math
 
-from sensenet.accessors import get_layer
+from sensenet.accessors import get_layer, is_yolo_model
 from sensenet.layers.yolo import YoloTrunk
 from sensenet.models.bounding_box import box_detector
 from sensenet.models.deepnet import deepnet_model
@@ -14,7 +14,7 @@ from sensenet.pretrained import load_pretrained_weights, get_pretrained_network
 def image_model(network, input_settings):
     settings = ensure_settings(input_settings)
 
-    if 'yolo' in network['image_network']['metadata']['base_image_network']:
+    if is_yolo_model(network):
         model = box_detector(network, settings)
     else:
         model = deepnet_model(network, settings)
