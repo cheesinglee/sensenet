@@ -154,9 +154,12 @@ def show_outputs(images, reader, model):
     plt.show()
 
 def test_dropblock():
-    image_shape = (None, 128, 128, 3)
+    image_shape = (None, 64, 64, 3)
     network = {
-        'layers': [{'type': 'dropout', 'dropout_type': 'block', 'rate': 0.1}]
+        'layers': [{'type': 'dropout',
+                    'dropout_type': 'block',
+                    'block_size': 7,
+                    'rate': 0.1}]
     }
 
     reader = get_image_reader_fn(image_shape, 'file', 'tests/data/images')

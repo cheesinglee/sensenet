@@ -18,6 +18,9 @@ class DropBlock2D(tf.keras.layers.Layer):
         assert len(input_shape) == 4
         _, self._h, self._w, self._channel = input_shape.as_list()
 
+        min_dim = min(self._h, self._w)
+        self._block_size = min(self._block_size, min(self._h, self._w))
+
         # pad the mask
         p1 = (self._block_size - 1) // 2
         p0 = (self._block_size - 1) - p1

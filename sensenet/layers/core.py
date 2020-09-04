@@ -47,7 +47,8 @@ def dropout(params):
     elif dtype == 'alpha':
         return kl.AlphaDropout(rate=rate, seed=42)
     elif dtype == 'block':
-        return DropBlock2D(rate=rate, seed=42)
+        bsize = params['block_size']
+        return DropBlock2D(rate=rate, block_size=bsize, seed=42)
     else:
         raise ValueError('"%s" is not a valid dropout type!' % dtype)
 
