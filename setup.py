@@ -43,7 +43,8 @@ setup(
     ext_modules=[tree_module],
     tests_require=[
         'nose>=1.3,<1.4',
-        'pillow>=6.1,<6.2'
+        'pillow>=7.2,<7.3',
+        'scikit-learn>=0.23,<0.24'
     ],
     test_suite='nose.collector',
     install_requires=[
