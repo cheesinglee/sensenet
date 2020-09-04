@@ -49,5 +49,5 @@ setup(
     test_suite='nose.collector',
     install_requires=[
         'numpy>=1.18,<1.19',
-        tf_ver,
+        tf_ver
     ])
