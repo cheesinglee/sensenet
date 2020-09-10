@@ -1,3 +1,6 @@
+import sensenet.importers
+np = sensenet.importers.import_numpy()
+
 from sensenet.accessors import is_yolo_model
 from sensenet.load import load_points
 from sensenet.models.bounding_box import box_detector
