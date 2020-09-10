@@ -39,6 +39,10 @@ class ObjectDetector(object):
         elif isinstance(input_data, str):
             prediction = self.predict([[input_data]])
         # Pixel-valued ndarray input
+        elif isinstance(input_data, np.ndarray) and len(input_data.shape) == 3:
+            array = np.expand_dims(input_data, axis=0)
+            prediction = self.predict(array)
+        # Something else (tf.tensor or python list)
         else:
             prediction = self.predict(input_data)
 
