@@ -44,11 +44,7 @@ contain:
   string containing the raw, undecoded, image file bytes (`'bytes'`)
   or the decompressed image data represented as a nested python list,
   numpy array, or TensorFlow tensor of pixel values
-  (`'pixel_values'`).  Note that this last option is only available
-  for models that take a single image as input, and the pixel array
-  must be resized to the expected resolution given in the model; when
-  using the other two options, images are resized as they are
-  decompressed.
+  (`'pixel_values'`).
 
 - `iou_threshold`: A threshold indicating the amount of overlap boxes
   predicting the same class should have before they are considered to

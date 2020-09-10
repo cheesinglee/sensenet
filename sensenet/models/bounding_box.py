@@ -104,8 +104,7 @@ def box_detector(model, input_settings):
     reader = BoundingBoxImageReader(network, settings)
 
     if settings.input_image_format == 'pixel_values':
-        image_shape = get_image_shape(model)
-        image_input = kl.Input(image_shape[1:], dtype=tf.float32, name='image')
+        image_input = kl.Input((None, None, 3), dtype=tf.float32, name='image')
         raw_image, original_shape = reader(image_input)
     else:
         image_input = kl.Input((1,), dtype=tf.string, name='image')
