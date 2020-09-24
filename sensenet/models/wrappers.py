@@ -16,12 +16,18 @@ class Deepnet(object):
         return self._model.predict(pvec)
 
     def __call__(self, input_data):
+        # TODO:  We should probably add assertions or something here
+        # to make sure we're getting at least the right number of inputs
         if isinstance(input_data, list):
-            # Single unwrapped instance
             if isinstance(input_data[0], (float, int, str)):
+                # Single unwrapped instance
                 return self.predict([input_data])
             else:
+                # Properly wrapped instance
                 return self.predict(input_data)
+        elif isinstance(input_data, str):
+            # Single image path or single text field
+            prediction = self.predict([[input_data]])
         else:
             dtype = str(type(input_data))
             raise TypeError('Cannot predict on arguments of type "%s"' % dtype)
