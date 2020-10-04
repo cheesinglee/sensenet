@@ -37,21 +37,21 @@ class BoxLocator(tf.keras.layers.Layer):
         box_xy, box_wh = tf.split(class_boxes, (2, 2), axis=-1)
         input_shape = tf.constant(self._input_shape, dtype=tf.float32)
 
-        box_yx = box_xy[..., ::-1]
-        box_hw = box_wh[..., ::-1]
+        box_yx = box_xy[:,:,::-1]
+        box_hw = box_wh[:,:,::-1]
 
         box_mins = (box_yx - (box_hw / 2.)) / input_shape
         box_maxes = (box_yx + (box_hw / 2.)) / input_shape
         boxes = tf.concat([
-            box_mins[..., 0:1],  # y_min
-            box_mins[..., 1:2],  # x_min
-            box_maxes[..., 0:1],  # y_max
-            box_maxes[..., 1:2]  # x_max
+            box_mins[:,:,0:1],  # y_min
+            box_mins[:,:,1:2],  # x_min
+            box_maxes[:,:,0:1],  # y_max
+            box_maxes[:,:,1:2]  # x_max
         ], axis=-1)
 
         ylim, xlim = limits[0], limits[1]
 
-        amask = tf.logical_and(box_xy[..., 0] < xlim, box_xy[..., 1] < ylim)
+        amask = tf.logical_and(box_xy[:,:,0] < xlim, box_xy[:,:,1] < ylim)
         boxes = tf.reshape(tf.boolean_mask(boxes, amask), boxes_shape)
         pred_conf = tf.reshape(tf.boolean_mask(pred_conf, amask), conf_shape)
 
@@ -65,8 +65,8 @@ class BoxLocator(tf.keras.layers.Layer):
         box_scores = []
 
         for _, bboxes in predictions:
-            map_boxes = bboxes[..., :4]
-            map_scores = bboxes[..., 4:5] * bboxes[..., 5:]
+            map_boxes = bboxes[:,:,:,:,:4]
+            map_scores = bboxes[:,:,:,:,4:5] * bboxes[:,:,:,:,5:]
 
             box_bounds.append(self.reshape3d(map_boxes))
             box_scores.append(self.reshape3d(map_scores))
@@ -81,35 +81,33 @@ class BoxLocator(tf.keras.layers.Layer):
         limits = self._input_shape * original_shape[0][:2] / max_dim
 
         boxes, scores = self.filter_boxes(boxes, scores, limits)
-        sc_shape = tf.shape(scores)
 
-        boxes, scores, classes, valid = tf.image.combined_non_max_suppression(
-            boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
-            scores=tf.reshape(scores, (sc_shape[0], -1, sc_shape[-1])),
-            max_output_size_per_class=self._max_objects,
-            max_total_size=self._max_objects,
+        # And again, boxes[0] indicates we only care about the first
+        # input instance
+        scaled_boxes = tf.math.round(boxes[0] * max_dim, name='boxes')
+        classes = tf.math.argmax(scores[0], axis=1, name='classes')
+        max_box_scores = tf.math.reduce_max(scores[0], axis=1, name='scores')
+
+        selected_indices, num_valid = tf.image.non_max_suppression_padded(
+            boxes=scaled_boxes,
+            scores=max_box_scores,
+            max_output_size=self._max_objects,
             iou_threshold=self._iou_threshold,
-            score_threshold=self._threshold
-        )
+            score_threshold=self._threshold)
 
-        vboxes = tf.gather(boxes[0,:valid[0],...], [1,0,3,2], axis=-1)
-        vboxes = tf.math.round(vboxes * max_dim)
+        selected_boxes = tf.gather(scaled_boxes, selected_indices)
+        selected_scores = tf.gather(max_box_scores, selected_indices)
+        selected_classes = tf.gather(classes, selected_indices)
 
-        return vboxes, scores[0,:valid[0]], classes[0,:valid[0]]
+        output_boxes = tf.gather(selected_boxes, [1,0,3,2], axis=-1)
+
+        return output_boxes, selected_scores, selected_classes
 
 def box_detector(model, input_settings):
     settings = ensure_settings(input_settings)
 
     network = model['image_network']
     reader = BoundingBoxImageReader(network, settings)
-
-    if settings.input_image_format == 'pixel_values':
-        image_input = kl.Input((None, None, 3), dtype=tf.float32, name='image')
-        raw_image, original_shape = reader(image_input)
-    else:
-        image_input = kl.Input((1,), dtype=tf.string, name='image')
-        raw_image, original_shape = reader(image_input[:,0])
-
     nclasses = number_of_classes(model)
     loader = ImageLoader(network)
 
@@ -117,6 +115,12 @@ def box_detector(model, input_settings):
     yolo_branches = YoloBranches(network, nclasses)
     locator = BoxLocator(network, nclasses, settings)
 
+    if settings.input_image_format == 'pixel_values':
+        image_input = kl.Input((None, None, 3), dtype=tf.float32, name='image')
+    else:
+        image_input = kl.Input((1,), dtype=tf.string, name='image')
+
+    raw_image, original_shape = reader(image_input)
     image = loader(raw_image)
     layer_outputs = yolo_trunk(image)
     predictions = yolo_branches(layer_outputs)

@@ -1,5 +1,7 @@
 import json
 import gzip
+import os
+import shutil
 
 import sensenet.importers
 np = sensenet.importers.import_numpy()
@@ -12,7 +14,13 @@ from sensenet.load import load_points
 from sensenet.models.image import pretrained_image_model, image_feature_extractor
 from sensenet.models.image import image_layers, get_pretrained_network
 from sensenet.models.settings import Settings
+from sensenet.models.wrappers import tflite_export
 from sensenet.preprocess.image import get_image_reader_fn
+
+from .utils import TEST_DATA_DIR
+
+TEST_SAVE_MODEL = os.path.join(TEST_DATA_DIR, 'test_model_save')
+TEST_TF_LITE_MODEL = os.path.join(TEST_SAVE_MODEL, 'model.tflite')
 
 EXTRA_PARAMS = {
     'image_path_prefix': 'tests/data/images/',
@@ -100,11 +108,24 @@ def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
 def test_tinyyolov4():
     detect_bounding_boxes('tinyyolov4', 5, [0, 53], 0.4)
 
+def test_tf_lite():
+    detector = create_image_model('tinyyolov4', 0.5, 'pixel_values')
+
+    shutil.rmtree(TEST_SAVE_MODEL, ignore_errors=True)
+    os.makedirs(TEST_SAVE_MODEL)
+
+    tflite_export(detector, TEST_TF_LITE_MODEL)
+    interpreter = tf.lite.Interpreter(model_path=TEST_TF_LITE_MODEL)
+    interpreter.allocate_tensors()
+
+    assert len(interpreter.get_input_details()) == 1
+    assert len(interpreter.get_output_details()) == 3
+
+    shutil.rmtree(TEST_SAVE_MODEL)
+
 def test_scaling():
     detector = create_image_model('tinyyolov4', 0.5, 'file')
-    pred = detector.predict([['strange_car.png']])
-
-    boxes, scores, classes = pred
+    boxes, scores, classes  = detector.predict([['strange_car.png']])
 
     assert 550 < boxes[0][0] < 600, boxes[0]
     assert 220 < boxes[0][1] < 270, boxes[0]

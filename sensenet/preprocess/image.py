@@ -104,16 +104,18 @@ class BoundingBoxImageReader(ImageReader):
 
     def call(self, inputs):
         if self._input_format == 'pixel_values':
-            original_dims = tf.expand_dims(tf.shape(inputs)[1:], axis=0)
             dims = tf.constant(self._input_shape[1:3], tf.int32)
-            images = resize_and_pad(inputs, tf.shape(inputs)[1:3], dims)
-
-            outputs = images, tf.tile(original_dims, [tf.shape(inputs)[0], 1])
+            image = resize_and_pad(inputs, tf.shape(inputs)[1:3], dims)
+            original_dims = tf.expand_dims(tf.shape(inputs)[1:], axis=0)
         else:
-            outsig = (tf.uint8, tf.int32)
-            outputs = tf.map_fn(self._read, inputs, fn_output_signature=outsig)
+            # We're explicitly saying here we only take one filename at
+            # a time; if multiple files are passed in, all but the first
+            # one are ignored.
+            image, dims = self._read(inputs[0,0])
+            image = tf.expand_dims(image, axis=0)
+            original_dims = tf.expand_dims(dims, axis=0)
 
-        return tf.cast(outputs[0], tf.float32), outputs[1]
+        return tf.cast(image, tf.float32), original_dims
 
 class ImageLoader(tf.keras.layers.Layer):
     def __init__(self, network):

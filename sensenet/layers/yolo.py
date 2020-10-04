@@ -17,7 +17,7 @@ class YoloTrunk(tf.keras.layers.Layer):
             self._trunk.append(LAYER_FUNCTIONS[ltype](layer))
 
             if ltype == 'concatenate':
-                self._concatenations[i] = layer['inputs']
+                self._concatenations[i] = tuple(layer['inputs'])
 
     def call(self, inputs):
         outputs = []

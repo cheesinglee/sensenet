@@ -1,10 +1,24 @@
 import sensenet.importers
 np = sensenet.importers.import_numpy()
+tf = sensenet.importers.import_tensorflow()
 
 from sensenet.accessors import is_yolo_model
 from sensenet.load import load_points
 from sensenet.models.bounding_box import box_detector
 from sensenet.models.deepnet import deepnet_model
+
+def tflite_export(tf_model, model_path):
+    converter = tf.lite.TFLiteConverter.from_keras_model(tf_model)
+    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS,
+                                           tf.lite.OpsSet.SELECT_TF_OPS]
+
+    tflite_model = converter.convert()
+
+    if model_path is not None:
+        with open(model_path, 'wb') as fout:
+            fout.write(tflite_model)
+
+    return tflite_model
 
 class Deepnet(object):
     def __init__(self, model, settings):
@@ -65,6 +79,9 @@ class ObjectDetector(object):
                 'score': float(score)})
 
         return output_boxes
+
+    def export(self, path):
+        return tflite_export(self._model, path)
 
 def is_deepnet(model):
     return 'preprocess' in model and ('layers' in model or 'networks' in model)
