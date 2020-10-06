@@ -23,7 +23,7 @@ class BoxLocator(tf.keras.layers.Layer):
         self._max_objects = settings.max_objects or MAX_OBJECTS
 
     def filter_boxes(self, box_xywh, scores, limits):
-        scores_max = tf.math.reduce_max(scores, axis=-1)
+        scores_max = tf.math.reduce_max(scores, axis=-1, name='scores_max')
         mask = scores_max >= min(0.2, self._threshold)
 
         boxes_masked = tf.boolean_mask(box_xywh, mask)
@@ -77,7 +77,7 @@ class BoxLocator(tf.keras.layers.Layer):
         # Here we're assuming that we only get one image at a time as input
         # I'm not sure this can be vectorized, given the flattening that
         # happens when we mask above
-        max_dim = tf.reduce_max(original_shape[0][:2])
+        max_dim = tf.math.reduce_max(original_shape[0][:2], name='max_dim')
         limits = self._input_shape * original_shape[0][:2] / max_dim
 
         boxes, scores = self.filter_boxes(boxes, scores, limits)
