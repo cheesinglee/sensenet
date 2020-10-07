@@ -123,6 +123,14 @@ def test_tf_lite():
 
     shutil.rmtree(TEST_SAVE_MODEL)
 
+def test_empty():
+    detector = create_image_model('tinyyolov4', 0.5, 'file')
+    boxes, scores, classes  = detector.predict([['black.png']])
+
+    assert len(boxes[0]) == 0
+    assert len(scores[0]) == 0
+    assert len(classes[0]) == 0
+
 def test_scaling():
     detector = create_image_model('tinyyolov4', 0.5, 'file')
     boxes, scores, classes  = detector.predict([['strange_car.png']])

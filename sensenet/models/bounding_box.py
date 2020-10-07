@@ -23,7 +23,7 @@ class BoxLocator(tf.keras.layers.Layer):
         self._max_objects = settings.max_objects or MAX_OBJECTS
 
     def filter_boxes(self, box_xywh, scores, limits):
-        scores_max = tf.math.reduce_max(scores, axis=-1, name='scores_max')
+        scores_max = tf.reduce_max(scores, axis=-1, name='scores_max')
         mask = scores_max >= min(0.2, self._threshold)
 
         boxes_masked = tf.boolean_mask(box_xywh, mask)
@@ -77,16 +77,23 @@ class BoxLocator(tf.keras.layers.Layer):
         # Here we're assuming that we only get one image at a time as input
         # I'm not sure this can be vectorized, given the flattening that
         # happens when we mask above
-        max_dim = tf.math.reduce_max(original_shape[0][:2], axis=-1, name='mdim')
+        max_dim = tf.reduce_max(original_shape[0][:2], axis=-1, name='mdim')
         limits = self._input_shape * original_shape[0][:2] / max_dim
 
         boxes, scores = self.filter_boxes(boxes, scores, limits)
 
         # And again, boxes[0] indicates we only care about the first
         # input instance
-        scaled_boxes = tf.math.round(boxes[0] * max_dim, name='boxes')
-        classes = tf.math.argmax(scores[0], axis=1, name='classes')
-        max_box_scores = tf.math.reduce_max(scores[0], axis=1, name='scores')
+        nboxes = tf.shape(scores[0])[0]
+        img_boxes = tf.reshape(boxes[0], (nboxes, 4))
+        img_scores = tf.reshape(scores[0], (nboxes, self._nclasses))
+
+        scaled_boxes = tf.math.round(img_boxes * max_dim, name='boxes')
+        classes = tf.cast(tf.argmax(img_scores, axis=1), tf.int32)
+
+        scores_shape = tf.shape(img_scores)
+        score_idxs = classes + (tf.range(nboxes) * self._nclasses)
+        max_box_scores = tf.gather(tf.reshape(img_scores, (-1,)), score_idxs)
 
         selected_indices, num_valid = tf.image.non_max_suppression_padded(
             boxes=scaled_boxes,
