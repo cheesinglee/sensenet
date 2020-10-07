@@ -84,9 +84,9 @@ class BoxLocator(tf.keras.layers.Layer):
 
         # And again, boxes[0] indicates we only care about the first
         # input instance
-        nboxes = tf.shape(scores[0])[0]
-        img_boxes = tf.reshape(boxes[0], (nboxes, 4))
-        img_scores = tf.reshape(scores[0], (nboxes, self._nclasses))
+        nboxes = tf.shape(scores)[1]
+        img_boxes = tf.reshape(boxes, (nboxes, 4))
+        img_scores = tf.reshape(scores, (nboxes, self._nclasses))
 
         scaled_boxes = tf.math.round(img_boxes * max_dim, name='boxes')
         classes = tf.cast(tf.argmax(img_scores, axis=1), tf.int32)
