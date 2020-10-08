@@ -15,26 +15,20 @@ class BoxLocator(tf.keras.layers.Layer):
     def __init__(self, network, nclasses, settings):
         super(BoxLocator, self).__init__()
 
+        assert network['layers'][-1]['type'] == 'yolo_output_branches'
+
         self._nclasses = nclasses
         self._input_shape = get_image_shape(network)[1:3]
+
+        ob = network['layers'][-1]['output_branches']
+        self._strides = tuple([self._input_shape[0] // b['strides'] for b in ob])
+        self._nanchors = tuple([len(b['anchors']) for b in ob])
 
         self._threshold = settings.bounding_box_threshold or SCORE_THRESHOLD
         self._iou_threshold = settings.iou_threshold or IOU_THRESHOLD
         self._max_objects = settings.max_objects or MAX_OBJECTS
 
-    def filter_boxes(self, box_xywh, scores, limits):
-        scores_max = tf.reduce_max(scores, axis=-1, name='scores_max')
-        mask = scores_max >= min(0.2, self._threshold)
-
-        boxes_masked = tf.boolean_mask(box_xywh, mask)
-        boxes_shape = (tf.shape(scores)[0], -1, tf.shape(boxes_masked)[-1])
-        class_boxes = tf.reshape(boxes_masked, boxes_shape)
-
-        preds_masked = tf.boolean_mask(scores, mask)
-        conf_shape = (tf.shape(scores)[0], -1, tf.shape(preds_masked)[-1])
-        pred_conf = tf.reshape(preds_masked, conf_shape)
-
-        box_xy, box_wh = tf.split(class_boxes, (2, 2), axis=-1)
+    def boxes_min_max(self, box_xy, box_wh):
         input_shape = tf.constant(self._input_shape, dtype=tf.float32)
 
         box_yx = box_xy[:,:,::-1]
@@ -42,52 +36,44 @@ class BoxLocator(tf.keras.layers.Layer):
 
         box_mins = (box_yx - (box_hw / 2.)) / input_shape
         box_maxes = (box_yx + (box_hw / 2.)) / input_shape
-        boxes = tf.concat([
+
+        return  tf.concat([
             box_mins[:,:,0:1],  # y_min
             box_mins[:,:,1:2],  # x_min
             box_maxes[:,:,0:1],  # y_max
             box_maxes[:,:,1:2]  # x_max
         ], axis=-1)
 
-        ylim, xlim = limits[0], limits[1]
-
-        amask = tf.logical_and(box_xy[:,:,0] < xlim, box_xy[:,:,1] < ylim)
-        boxes = tf.reshape(tf.boolean_mask(boxes, amask), boxes_shape)
-        pred_conf = tf.reshape(tf.boolean_mask(pred_conf, amask), conf_shape)
-
-        return boxes, pred_conf
-
-    def reshape3d(self, x):
-        return tf.reshape(x, (tf.shape(x)[0], -1, tf.shape(x)[-1]))
+    def reshape3d(self, x, nrows, ncols):
+        return tf.reshape(x, (tf.shape(x)[0], nrows, ncols))
 
     def call(self, predictions, original_shape):
         box_bounds = []
         box_scores = []
 
-        for _, bboxes in predictions:
+        for pred, stride, na in zip(predictions, self._strides, self._nanchors):
+            bboxes = pred[1]
+            nboxes = stride * stride * na
+
             map_boxes = bboxes[:,:,:,:,:4]
             map_scores = bboxes[:,:,:,:,4:5] * bboxes[:,:,:,:,5:]
 
-            box_bounds.append(self.reshape3d(map_boxes))
-            box_scores.append(self.reshape3d(map_scores))
+            box_bounds.append(self.reshape3d(map_boxes, nboxes, 4))
+            box_scores.append(self.reshape3d(map_scores, nboxes, self._nclasses))
 
-        boxes = tf.concat(box_bounds, axis=1)
-        scores = tf.concat(box_scores, axis=1)
+        scores = tf.concat(box_scores, axis=1, name='all_scores')
+        all_boxes = tf.concat(box_bounds, axis=1, name='all_boxes')
+
+        box_xy, box_wh = tf.split(all_boxes, (2, 2), axis=-1)
+        boxes = self.boxes_min_max(box_xy, box_wh)
 
         # Here we're assuming that we only get one image at a time as input
-        # I'm not sure this can be vectorized, given the flattening that
-        # happens when we mask above
-        max_dim = tf.reduce_max(original_shape[0][:2], axis=-1, name='mdim')
-        limits = self._input_shape * original_shape[0][:2] / max_dim
-
-        boxes, scores = self.filter_boxes(boxes, scores, limits)
-
-        # And again, boxes[0] indicates we only care about the first
-        # input instance
+        # I'm not sure this can be vectorized
         nboxes = tf.shape(scores)[1]
         img_boxes = tf.reshape(boxes, (nboxes, 4))
         img_scores = tf.reshape(scores, (nboxes, self._nclasses))
 
+        max_dim = tf.reduce_max(original_shape[0][:2], axis=-1, name='mdim')
         scaled_boxes = tf.math.round(img_boxes * max_dim, name='boxes')
         classes = tf.cast(tf.argmax(img_scores, axis=1), tf.int32)
 
