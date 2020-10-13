@@ -1,0 +1,2 @@
+[build-system]
+requires=["tensorflow <2.4,>=2.3", "setuptools"]
