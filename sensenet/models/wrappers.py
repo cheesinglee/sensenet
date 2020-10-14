@@ -9,9 +9,6 @@ from sensenet.models.deepnet import deepnet_model
 
 def tflite_export(tf_model, model_path):
     converter = tf.lite.TFLiteConverter.from_keras_model(tf_model)
-    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS,
-                                           tf.lite.OpsSet.SELECT_TF_OPS]
-
     tflite_model = converter.convert()
 
     if model_path is not None:
@@ -48,6 +45,7 @@ class Deepnet(object):
 
 class ObjectDetector(object):
     def __init__(self, model, settings):
+        self._unfiltered = settings.output_unfiltered_boxes
         self._model = box_detector(model, settings)
         self._classes = model['output_exposition']['values']
 
@@ -69,16 +67,19 @@ class ObjectDetector(object):
         else:
             prediction = self.predict(input_data)
 
-        boxes, scores, classes = prediction
-        output_boxes = []
+        if self._unfiltered:
+            return prediction
+        else:
+            boxes, scores, classes = prediction
+            output_boxes = []
 
-        for box, score, cls in zip(boxes, scores, classes):
-            output_boxes.append({
-                'box': [int(c) for c in box],
-                'label': self._classes[int(cls)],
-                'score': float(score)})
+            for box, score, cls in zip(boxes[0], scores[0], classes[0]):
+                output_boxes.append({
+                    'box': [int(c) for c in box],
+                    'label': self._classes[int(cls)],
+                    'score': float(score)})
 
-        return output_boxes
+            return output_boxes
 
     def export(self, path):
         return tflite_export(self._model, path)

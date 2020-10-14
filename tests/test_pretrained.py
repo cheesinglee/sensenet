@@ -25,18 +25,19 @@ TEST_SAVE_MODEL = os.path.join(TEST_DATA_DIR, 'test_model_save')
 TEST_TF_LITE_MODEL = os.path.join(TEST_SAVE_MODEL, 'model.tflite')
 
 EXTRA_PARAMS = {
+    'bounding_box_threshold': 0.5,
     'image_path_prefix': TEST_IMAGE_DATA,
     'input_image_format': 'file',
     'load_pretrained_weights': True
 }
 
-def create_image_model(network_name, box_threshold, image_format):
+def create_image_model(network_name, additional_settings):
     extras = dict(EXTRA_PARAMS)
-    extras['input_image_format'] = image_format
-    extras['bounding_box_threshold'] = box_threshold
 
-    extras = Settings(extras) if box_threshold else extras
-    return pretrained_image_model(network_name, extras)
+    if additional_settings:
+        extras.update(additional_settings)
+
+    return pretrained_image_model(network_name, Settings(extras))
 
 def reader_for_network(network_name):
     image_shape = get_image_shape(get_pretrained_network(network_name))
@@ -45,13 +46,15 @@ def reader_for_network(network_name):
     return get_image_reader_fn(image_shape, 'file', path_prefix)
 
 def classify(network_name, accuracy_threshold):
+    pixel_input = {'input_image_format': 'pixel_values'}
+
     network = get_pretrained_network(network_name)
     nlayers = len(network['image_network']['layers'])
     noutputs = network['image_network']['metadata']['outputs']
     preprocessors = network['preprocess']
 
-    image_model = create_image_model(network_name, None, 'file')
-    pixel_model = create_image_model(network_name, None, 'pixel_values')
+    image_model = create_image_model(network_name, None)
+    pixel_model = create_image_model(network_name, pixel_input)
     read = reader_for_network(network_name)
 
     assert len(image_layers(pixel_model)) == nlayers
@@ -93,8 +96,15 @@ def test_mobilenetv2():
     classify('mobilenetv2', 0.88)
 
 def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
-    image_detector = create_image_model(network_name, threshold, 'file')
-    pixel_detector = create_image_model(network_name, threshold, 'pixel_values')
+    file_input = {'bounding_box_threshold': threshold}
+
+    pixel_input = {
+        'input_image_format': 'pixel_values',
+        'bounding_box_threshold': threshold
+    }
+
+    image_detector = create_image_model(network_name, file_input)
+    pixel_detector = create_image_model(network_name, pixel_input)
     read = reader_for_network(network_name)
 
     file_pred = image_detector.predict([['pizza_people.jpg']])
@@ -102,7 +112,7 @@ def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
     pixel_pred = pixel_detector.predict(img_px)
 
     for pred in [file_pred, pixel_pred]:
-        boxes, scores, classes = pred
+        boxes, scores, classes = pred[0][0], pred[1][0], pred[2][0]
 
         assert len(boxes) == len(scores) == nboxes, len(boxes)
         assert sorted(set(classes)) == sorted(class_list), classes
@@ -111,7 +121,12 @@ def test_tinyyolov4():
     detect_bounding_boxes('tinyyolov4', 5, [0, 53], 0.4)
 
 def test_tf_lite():
-    detector = create_image_model('tinyyolov4', 0.5, 'pixel_values')
+    pixel_input = {
+        'input_image_format': 'pixel_values',
+        'output_unfiltered_boxes': True
+    }
+
+    detector = create_image_model('tinyyolov4', pixel_input)
 
     shutil.rmtree(TEST_SAVE_MODEL, ignore_errors=True)
     os.makedirs(TEST_SAVE_MODEL)
@@ -138,30 +153,39 @@ def test_tf_lite():
     scores = interpreter.get_tensor(output_details[1]['index'])
     classes = interpreter.get_tensor(output_details[2]['index'])
 
-    print(boxes.shape)
-    print(classes.shape)
-    print(scores.shape)
+    assert boxes.shape == (1, 2535, 4), boxes.shape
+    assert classes.shape == (1, 2535), classes.shape
+    assert scores.shape == (1, 2535), scores.shape
 
-    print(classes)
+    for box, cls, score in zip(boxes[0], classes[0], scores[0]):
+        # There are a few boxes here, but they should all find the
+        # same thing in roughly the same place
+        if score > 0.5:
+            assert 550 < box[0] < 600, box
+            assert 220 < box[1] < 270, box
+            assert 970 < box[2] < 1020, box
+            assert 390 < box[3] < 440, box
+
+            assert cls == 2
 
     shutil.rmtree(TEST_SAVE_MODEL)
 
 def test_empty():
-    detector = create_image_model('tinyyolov4', 0.5, 'file')
+    detector = create_image_model('tinyyolov4', None)
     boxes, scores, classes  = detector.predict([['black.png']])
 
-    assert len(boxes) == 0
-    assert len(scores) == 0
-    assert len(classes) == 0
+    assert len(boxes[0]) == 0
+    assert len(scores[0]) == 0
+    assert len(classes[0]) == 0
 
 def test_scaling():
-    detector = create_image_model('tinyyolov4', 0.5, 'file')
+    detector = create_image_model('tinyyolov4', None)
     boxes, scores, classes  = detector.predict([['strange_car.png']])
 
-    assert 550 < boxes[0][0] < 600, boxes[0]
-    assert 220 < boxes[0][1] < 270, boxes[0]
-    assert 970 < boxes[0][2] < 1020, boxes[0]
-    assert 370 < boxes[0][3] < 420, boxes[0]
+    assert 550 < boxes[0, 0, 0] < 600,  boxes[0, 0]
+    assert 220 < boxes[0, 0, 1] < 270,  boxes[0, 0]
+    assert 970 < boxes[0, 0, 2] < 1020,  boxes[0, 0]
+    assert 390 < boxes[0, 0, 3] < 440,  boxes[0, 0]
 
     assert scores[0] > 0.9
     assert classes[0] == 2
