@@ -1,11 +1,13 @@
+import sensenet.importers
+np = sensenet.importers.import_numpy()
+tf = sensenet.importers.import_tensorflow()
+
 import json
 import gzip
 import os
 import shutil
 
-import sensenet.importers
-np = sensenet.importers.import_numpy()
-tf = sensenet.importers.import_tensorflow()
+from PIL import Image, ImageDraw
 
 from sensenet.constants import CATEGORICAL, IMAGE_PATH, BOUNDING_BOX
 
@@ -17,13 +19,13 @@ from sensenet.models.settings import Settings
 from sensenet.models.wrappers import tflite_export
 from sensenet.preprocess.image import get_image_reader_fn
 
-from .utils import TEST_DATA_DIR
+from .utils import TEST_DATA_DIR, TEST_IMAGE_DATA
 
 TEST_SAVE_MODEL = os.path.join(TEST_DATA_DIR, 'test_model_save')
 TEST_TF_LITE_MODEL = os.path.join(TEST_SAVE_MODEL, 'model.tflite')
 
 EXTRA_PARAMS = {
-    'image_path_prefix': 'tests/data/images/',
+    'image_path_prefix': TEST_IMAGE_DATA,
     'input_image_format': 'file',
     'load_pretrained_weights': True
 }
@@ -115,11 +117,32 @@ def test_tf_lite():
     os.makedirs(TEST_SAVE_MODEL)
 
     tflite_export(detector, TEST_TF_LITE_MODEL)
+
     interpreter = tf.lite.Interpreter(model_path=TEST_TF_LITE_MODEL)
+    interpreter.resize_tensor_input(0, [1, 508, 1096, 3], strict=True)
     interpreter.allocate_tensors()
 
-    assert len(interpreter.get_input_details()) == 1
-    assert len(interpreter.get_output_details()) == 3
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+
+    assert len(input_details) == 1
+    assert len(output_details) == 3
+
+    img = Image.open(os.path.join(TEST_IMAGE_DATA, 'strange_car.png'))
+    input_data = np.expand_dims(img.convert('RGB'), axis=0).astype(np.float32)
+
+    interpreter.set_tensor(input_details[0]['index'], input_data)
+    interpreter.invoke()
+
+    boxes = interpreter.get_tensor(output_details[0]['index'])
+    scores = interpreter.get_tensor(output_details[1]['index'])
+    classes = interpreter.get_tensor(output_details[2]['index'])
+
+    print(boxes.shape)
+    print(classes.shape)
+    print(scores.shape)
+
+    print(classes)
 
     shutil.rmtree(TEST_SAVE_MODEL)
 

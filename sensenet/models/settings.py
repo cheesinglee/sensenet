@@ -5,6 +5,7 @@ OPTIONAL = {
     'iou_threshold': [1e-8, 1.0],
     'load_pretrained_weights': bool,
     'max_objects': int,
+    'output_unfiltered_boxes': bool,
     'regression_normalize': bool
 }
 

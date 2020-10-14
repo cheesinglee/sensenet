@@ -8,6 +8,7 @@ tf = sensenet.importers.import_tensorflow()
 from sensenet.layers.utils import propagate
 
 TEST_DATA_DIR = 'tests/data/'
+TEST_IMAGE_DATA = os.path.join(TEST_DATA_DIR, 'images/')
 
 def read_regression(path, root=TEST_DATA_DIR):
     return read_zipped_json(os.path.join(root, path))

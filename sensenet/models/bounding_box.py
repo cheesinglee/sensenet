@@ -24,6 +24,7 @@ class BoxLocator(tf.keras.layers.Layer):
         self._strides = tuple([self._input_shape[0] // b['strides'] for b in ob])
         self._nanchors = tuple([len(b['anchors']) for b in ob])
 
+        self._unfiltered = settings.output_unfiltered_boxes
         self._threshold = settings.bounding_box_threshold or SCORE_THRESHOLD
         self._iou_threshold = settings.iou_threshold or IOU_THRESHOLD
         self._max_objects = settings.max_objects or MAX_OBJECTS
@@ -81,20 +82,29 @@ class BoxLocator(tf.keras.layers.Layer):
         score_idxs = classes + (tf.range(nboxes) * self._nclasses)
         max_box_scores = tf.gather(tf.reshape(img_scores, (-1,)), score_idxs)
 
-        selected_indices, num_valid = tf.image.non_max_suppression_padded(
-            boxes=scaled_boxes,
-            scores=max_box_scores,
-            max_output_size=self._max_objects,
-            iou_threshold=self._iou_threshold,
-            score_threshold=self._threshold)
+        if self._unfiltered:
+            selected_boxes = scaled_boxes
+            selected_scores = max_box_scores
+            selected_classes = classes
+        else:
+            selected_indices, num_valid = tf.image.non_max_suppression_padded(
+                boxes=scaled_boxes,
+                scores=max_box_scores,
+                max_output_size=self._max_objects,
+                iou_threshold=self._iou_threshold,
+                score_threshold=self._threshold)
 
-        selected_boxes = tf.gather(scaled_boxes, selected_indices)
-        selected_scores = tf.gather(max_box_scores, selected_indices)
-        selected_classes = tf.gather(classes, selected_indices)
+            selected_boxes = tf.gather(scaled_boxes, selected_indices)
+            selected_scores = tf.gather(max_box_scores, selected_indices)
+            selected_classes = tf.gather(classes, selected_indices)
 
-        output_boxes = tf.gather(selected_boxes, [1,0,3,2], axis=-1)
+        xyxy_boxes = tf.gather(selected_boxes, [1,0,3,2], axis=-1)
 
-        return output_boxes, selected_scores, selected_classes
+        final_boxes = tf.expand_dims(xyxy_boxes, axis=0)
+        final_scores = tf.expand_dims(selected_scores, axis=0)
+        final_classes = tf.expand_dims(selected_classes, axis=0)
+
+        return final_boxes, final_scores, final_classes
 
 def box_detector(model, input_settings):
     settings = ensure_settings(input_settings)
