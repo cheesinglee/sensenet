@@ -6,6 +6,7 @@ from sensenet.accessors import is_yolo_model
 from sensenet.load import load_points
 from sensenet.models.bounding_box import box_detector
 from sensenet.models.deepnet import deepnet_model
+from sensenet.models.settings import ensure_settings
 
 def tflite_export(tf_model, model_path):
     converter = tf.lite.TFLiteConverter.from_keras_model(tf_model)
