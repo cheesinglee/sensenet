@@ -44,7 +44,7 @@ class Deepnet(object):
             raise TypeError('Cannot predict on arguments of type "%s"' % dtype)
 
 class ObjectDetector(object):
-    def __init__(self, model, settings):
+    def __init__(self, model, input_settings):
         self._unfiltered = settings.output_unfiltered_boxes
         self._model = box_detector(model, settings)
         self._classes = model['output_exposition']['values']
@@ -88,10 +88,12 @@ def is_deepnet(model):
     return 'preprocess' in model and ('layers' in model or 'networks' in model)
 
 def create_model(model, settings=None):
+    settings_object = ensure_settings(settings)
+
     if is_deepnet(model):
         if is_yolo_model(model):
-            return ObjectDetector(model, settings)
+            return ObjectDetector(model, settings_object)
         else:
-            return Deepnet(model, settings)
+            return Deepnet(model, settings_object)
     else:
         raise ValueError('Model format not recognized: %s' % str(model.keys()))
