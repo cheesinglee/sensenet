@@ -45,7 +45,7 @@ class Deepnet(object):
             raise TypeError('Cannot predict on arguments of type "%s"' % dtype)
 
 class ObjectDetector(object):
-    def __init__(self, model, input_settings):
+    def __init__(self, model, settings):
         self._unfiltered = settings.output_unfiltered_boxes
         self._model = box_detector(model, settings)
         self._classes = model['output_exposition']['values']
