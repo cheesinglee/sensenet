@@ -8,6 +8,10 @@ from sensenet.accessors import get_image_shape
 from sensenet.layers.utils import constant, propagate
 from sensenet.layers.construct import layer_sequence
 
+CONTRAST_LIMIT = 0.25
+EXPECTED_LOW = 255 * CONTRAST_LIMIT
+EXPECTED_HIGH = 255 * (1 - CONTRAST_LIMIT)
+
 def scale_for_box(input_dims, target_dims):
     y_scale = target_dims[0] / input_dims[0]
     x_scale = target_dims[1] / input_dims[1]
@@ -30,7 +34,22 @@ def resize_and_pad(image, input_dims, target_dims):
 
     img = tf.image.resize(image, out_shape, method='nearest')
 
-    return tf.pad(img, pad)
+    return tf.pad(img, pad, constant_values=tf.reduce_mean(img))
+
+# Unused right now, but I'll leave it here just in case
+def adjust_contrast(image):
+    flattened = tf.sort(tf.reshape(tf.cast(image, tf.float32), (-1,)))
+    npixels = tf.cast(tf.shape(flattened)[0], tf.float32)
+    limit_index = tf.cast(tf.round(npixels * CONTRAST_LIMIT), tf.int32)
+
+    pLow = flattened[limit_index]
+    pHigh = flattened[-limit_index]
+
+    low_contrast = tf.maximum(1.0, pLow / EXPECTED_LOW)
+    high_contrast = tf.maximum(1.0, EXPECTED_HIGH / pHigh)
+    adjustment = tf.maximum(high_contrast, low_contrast)
+
+    return tf.image.adjust_contrast(image, adjustment)
 
 def get_image_reader_fn(image_shape, input_format, prefix, pad=False):
     dims = tf.constant(image_shape[1:3], tf.int32)
@@ -92,7 +111,6 @@ class ImageReader(tf.keras.layers.Layer):
             images = tf.map_fn(self._read, inputs, fn_output_signature=tf.uint8)
 
         return tf.cast(images, tf.float32)
-
 
 class BoundingBoxImageReader(ImageReader):
     def __init__(self, network, settings):
