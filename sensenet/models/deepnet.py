@@ -19,9 +19,7 @@ def instantiate_inputs(model, settings):
 
     if ncols == 1 and settings.input_image_format == 'pixel_values':
         assert ptypes[0] == IMAGE_PATH
-
-        image_shape = get_image_shape(model)
-        return kl.Input(image_shape[1:], dtype=tf.float32, name='image')
+        return kl.Input((None, None, 3), dtype=tf.float32, name='image')
     else:
         return {
             'numeric': kl.Input((ncols,), dtype=tf.float32, name='numeric'),

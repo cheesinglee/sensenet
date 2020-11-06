@@ -18,6 +18,43 @@ def tflite_export(tf_model, model_path):
 
     return tflite_model
 
+def to_tflite(model_or_spec, output_path, sensenet_settings=None):
+    """Convert some structure describing a wrapped model to a tflite file.
+
+    The first input to this function can be one of the model wrapper
+    classes (e.g., ObjectDetector), a dict used to instantiate a
+    wrapper, or the path to a file containing JSON for such a dict.
+
+    The second is the desired path to the tflite output file.
+
+    Optionally, one may provide a dict of settings for the model,
+    which can contain things like the IOU threshold for non-max
+    suppression (see sensenet.model.settings).  Note that if the input
+    is an already-instantiated model, this argument is ignored.
+
+    Returns the converted model in tflite as a `bytes`.
+
+    """
+    if isinstance(model_or_spec, tf.keras.Model):
+        model = model_or_spec
+    elif isinstance(model_or_spec, (Deepnet, ObjectDetector)):
+        model = model_or_spec._model
+    else:
+        if isinstance(model_or_spec, dict):
+            model_dict = model_or_spec
+        else:
+            with open(model_or_spec, 'r') as fin:
+                model_dict = json.load(fin)
+
+        export_settings = ensure_settings(sensenet_settings)
+        # This is the only valid input format for tflite; it doesn't
+        # know how to read files (as of TF 2.3)
+        export_settings.input_image_format = 'pixel_values'
+
+        model = create_model(model_json, settings=export_settings)._model
+
+    return tflite_export(model, output_path)
+
 class Deepnet(object):
     def __init__(self, model, settings):
         self._preprocessors = model['preprocess']
@@ -81,9 +118,6 @@ class ObjectDetector(object):
                     'score': float(score)})
 
             return output_boxes
-
-    def export(self, path):
-        return tflite_export(self._model, path)
 
 def is_deepnet(model):
     return 'preprocess' in model and ('layers' in model or 'networks' in model)

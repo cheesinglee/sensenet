@@ -16,7 +16,7 @@ from sensenet.load import load_points
 from sensenet.models.image import pretrained_image_model, image_feature_extractor
 from sensenet.models.image import image_layers, get_pretrained_network
 from sensenet.models.settings import Settings
-from sensenet.models.wrappers import tflite_export
+from sensenet.models.wrappers import to_tflite
 from sensenet.preprocess.image import get_image_reader_fn
 
 from .utils import TEST_DATA_DIR, TEST_IMAGE_DATA
@@ -120,38 +120,52 @@ def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
 def test_tinyyolov4():
     detect_bounding_boxes('tinyyolov4', 5, [0, 53], 0.4)
 
-def test_tf_lite():
+def tflite_predict(model, len_inputs, len_outputs, test_file):
+    shutil.rmtree(TEST_SAVE_MODEL, ignore_errors=True)
+    os.makedirs(TEST_SAVE_MODEL)
+
+    to_tflite(model, TEST_TF_LITE_MODEL)
+    img = Image.open(os.path.join(TEST_IMAGE_DATA, test_file))
+    in_shape = [1] + list(img.size)[::-1] + [3]
+
+    interpreter = tf.lite.Interpreter(model_path=TEST_TF_LITE_MODEL)
+    interpreter.resize_tensor_input(0, in_shape, strict=True)
+    interpreter.allocate_tensors()
+
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+
+    assert len(input_details) == len_inputs
+    assert len(output_details) == len_outputs
+
+    input_data = np.expand_dims(img.convert('RGB'), axis=0).astype(np.float32)
+
+    interpreter.set_tensor(input_details[0]['index'], input_data)
+    interpreter.invoke()
+
+    return [interpreter.get_tensor(od['index']) for od in output_details]
+
+def test_tf_lite_deepnet():
+    pixel_input = {'input_image_format': 'pixel_values'}
+    model = create_image_model('mobilenetv2', pixel_input)
+    probs = tflite_predict(model, 1, 1, 'dog.jpg')
+
+    assert len(probs) == 1
+    assert probs[0].shape == (1, 1000), probs[0].shape
+    # It's generous but the math here is 32-bit
+    assert abs(np.sum(probs[0]) - 1) < 1e-5, np.sum(probs[0])
+    assert probs[0][0, 254] > 0.88
+
+    shutil.rmtree(TEST_SAVE_MODEL)
+
+def test_tf_lite_boxes():
     pixel_input = {
         'input_image_format': 'pixel_values',
         'output_unfiltered_boxes': True
     }
 
     detector = create_image_model('tinyyolov4', pixel_input)
-
-    shutil.rmtree(TEST_SAVE_MODEL, ignore_errors=True)
-    os.makedirs(TEST_SAVE_MODEL)
-
-    tflite_export(detector, TEST_TF_LITE_MODEL)
-
-    interpreter = tf.lite.Interpreter(model_path=TEST_TF_LITE_MODEL)
-    interpreter.resize_tensor_input(0, [1, 508, 1096, 3], strict=True)
-    interpreter.allocate_tensors()
-
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
-
-    assert len(input_details) == 1
-    assert len(output_details) == 3
-
-    img = Image.open(os.path.join(TEST_IMAGE_DATA, 'strange_car.png'))
-    input_data = np.expand_dims(img.convert('RGB'), axis=0).astype(np.float32)
-
-    interpreter.set_tensor(input_details[0]['index'], input_data)
-    interpreter.invoke()
-
-    boxes = interpreter.get_tensor(output_details[0]['index'])
-    scores = interpreter.get_tensor(output_details[1]['index'])
-    classes = interpreter.get_tensor(output_details[2]['index'])
+    boxes, scores, classes = tflite_predict(detector, 1, 3, 'strange_car.png')
 
     assert boxes.shape == (1, 2535, 4), boxes.shape
     assert classes.shape == (1, 2535), classes.shape
