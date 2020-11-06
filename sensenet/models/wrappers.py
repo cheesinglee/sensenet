@@ -2,6 +2,8 @@ import sensenet.importers
 np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
+import json
+
 from sensenet.accessors import is_yolo_model
 from sensenet.load import load_points
 from sensenet.models.bounding_box import box_detector
@@ -51,7 +53,7 @@ def to_tflite(model_or_spec, output_path, sensenet_settings=None):
         # know how to read files (as of TF 2.3)
         export_settings.input_image_format = 'pixel_values'
 
-        model = create_model(model_json, settings=export_settings)._model
+        model = create_model(model_dict, settings=export_settings)._model
 
     return tflite_export(model, output_path)
 
