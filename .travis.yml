@@ -7,6 +7,6 @@ install:
   - pip install nose
   - pip install "pillow>=7.2,<7.3"
   - pip install "scikit-learn>=0.23,<0.24"
-  - pip install . -v
+  - pip install .
 script:
   - nosetests -sv
