@@ -124,6 +124,7 @@ def box_detector(model, input_settings):
         image_input = kl.Input((1,), dtype=tf.string, name='image')
 
     raw_image, original_shape = reader(image_input)
+
     image = loader(raw_image)
     layer_outputs = yolo_trunk(image)
     predictions = yolo_branches(layer_outputs)

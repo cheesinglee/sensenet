@@ -76,9 +76,9 @@ class Deepnet(object):
             else:
                 # Properly wrapped instance
                 return self.predict(input_data)
+        # Single image path or text field
         elif isinstance(input_data, str):
-            # Single image path or single text field
-            prediction = self.predict([[input_data]])
+            return self.predict([[input_data]])
         else:
             dtype = str(type(input_data))
             raise TypeError('Cannot predict on arguments of type "%s"' % dtype)
@@ -93,9 +93,12 @@ class ObjectDetector(object):
         return self._model.predict(points)
 
     def __call__(self, input_data):
-        # Single wrapped instance
+        # Single wrapped instance, or multiple instances
         if isinstance(input_data, list):
-            prediction = self.predict([input_data])
+            if len(input_data) > 1:
+                return [self(data) for data in input_data]
+            else:
+                prediction = self.predict([input_data])
         # Single image path
         elif isinstance(input_data, str):
             prediction = self.predict([[input_data]])
@@ -122,15 +125,28 @@ class ObjectDetector(object):
             return output_boxes
 
 def is_deepnet(model):
-    return 'preprocess' in model and ('layers' in model or 'networks' in model)
+    try:
+        return 'layers' in model or 'networks' in model
+    except:
+        return False
+
+def is_bigml_resource(model):
+    try:
+        return 'network' in model['deepnet']
+    except:
+        return False
 
 def create_model(model, settings=None):
     settings_object = ensure_settings(settings)
 
-    if is_deepnet(model):
+    if is_bigml_resource(model):
+        return create_model(model['deepnet']['network'], settings=settings)
+    elif is_deepnet(model):
         if is_yolo_model(model):
             return ObjectDetector(model, settings_object)
         else:
             return Deepnet(model, settings_object)
-    else:
+    elif isinstance(model, dict):
         raise ValueError('Model format not recognized: %s' % str(model.keys()))
+    else:
+        raise TypeError('`model` argument cannot be a %s' % str(type(model)))

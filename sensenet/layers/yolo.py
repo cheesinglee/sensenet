@@ -21,7 +21,6 @@ class YoloTrunk(tf.keras.layers.Layer):
 
     def call(self, inputs):
         outputs = []
-        printed = False
         next_inputs = inputs
 
         for i, layer in enumerate(self._trunk):
