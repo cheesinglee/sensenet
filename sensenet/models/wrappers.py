@@ -61,6 +61,7 @@ class Deepnet(object):
     def __init__(self, model, settings):
         self._preprocessors = model['preprocess']
         self._model = deepnet_model(model, settings)
+        self._classes = model['output_exposition']['values']
 
     def predict(self, points):
         pvec = load_points(self._preprocessors, points)
@@ -130,17 +131,24 @@ def is_deepnet(model):
     except:
         return False
 
-def is_bigml_resource(model):
+def bigml_resource(resource):
+    if 'deepnet' in resource:
+        model = resource['deepnet']
+    elif 'model' in resource:
+        model = resource['model']
+    else:
+        model = {}
+
     try:
-        return 'network' in model['deepnet']
+        return model['network']
     except:
-        return False
+        return None
 
 def create_model(model, settings=None):
     settings_object = ensure_settings(settings)
 
-    if is_bigml_resource(model):
-        return create_model(model['deepnet']['network'], settings=settings)
+    if bigml_resource(model):
+        return create_model(bigml_resource(model), settings=settings)
     elif is_deepnet(model):
         if is_yolo_model(model):
             return ObjectDetector(model, settings_object)
