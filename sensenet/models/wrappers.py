@@ -62,9 +62,9 @@ class Deepnet(object):
         self._preprocessors = model['preprocess']
         self._model = deepnet_model(model, settings)
 
-        if 'values' in model['output_exposition']:
+        try:
             self._classes = model['output_exposition']['values']
-        else:
+        except KeyError:
             self._classes = None
 
     def predict(self, points):
