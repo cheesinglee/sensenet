@@ -61,7 +61,11 @@ class Deepnet(object):
     def __init__(self, model, settings):
         self._preprocessors = model['preprocess']
         self._model = deepnet_model(model, settings)
-        self._classes = model['output_exposition']['values']
+
+        if 'values' in model['output_exposition']:
+            self._classes = model['output_exposition']['values']
+        else:
+            self._classes = None
 
     def predict(self, points):
         pvec = load_points(self._preprocessors, points)
