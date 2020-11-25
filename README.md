@@ -25,8 +25,8 @@ model = create_model(a_dict, settings={'image_path_prefix': 'images/path/'})
 Again, `a_dict` is typically a downloaded BigML model, read into a
 python dictionary via `json.load` or similar.
 
-For image models, `settings` is a dict of optional settings which may
-contain:
+For image models, `settings` is either `None` or a dict of optional
+settings which may contain:
 
 - `bounding_box_threshold`: For object detection models only, the
   minimal score that an object can have and still be surfaced to the

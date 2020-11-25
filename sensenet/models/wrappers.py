@@ -4,7 +4,7 @@ tf = sensenet.importers.import_tensorflow()
 
 import json
 
-from sensenet.accessors import is_yolo_model
+from sensenet.accessors import is_yolo_model, get_output_exposition
 from sensenet.load import load_points
 from sensenet.models.bounding_box import box_detector
 from sensenet.models.deepnet import deepnet_model
@@ -62,8 +62,10 @@ class Deepnet(object):
         self._preprocessors = model['preprocess']
         self._model = deepnet_model(model, settings)
 
+        outex = get_output_exposition(model)
+
         try:
-            self._classes = model['output_exposition']['values']
+            self._classes = outex['values']
         except KeyError:
             self._classes = None
 
