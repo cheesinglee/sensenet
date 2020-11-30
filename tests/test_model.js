@@ -1,6 +1,6 @@
 const bounding_boxes = false;
 // uncomment if you're pointed at a bounding box model
-// const bounding_boxes = true
+// const bounding_boxes = true;
 
 require('@tensorflow/tfjs-node');
 
@@ -43,16 +43,16 @@ var test_model = async function() {
         // I'm confused.
         const prediction = await model.executeAsync(img);
 
-        var scores = await prediction[0].array();
-        var classes = await prediction[1].array();
+        var classes = await prediction[0].array();
+        var scores = await prediction[1].array();
         var boxes = await prediction[2].array();
 
-        console.assert(scores[0].length == 1);
-        console.assert(classes[0].length == 1);
-        console.assert(boxes[0].length == 1);
+        console.assert(scores[0].length == 1, scores[0]);
+        console.assert(classes[0].length == 1, classes[0]);
+        console.assert(boxes[0].length == 1, boxes[0]);
 
-        console.assert(classes[0][0] == 2);
-        console.assert(scores[0][0] > 0.95);
+        console.assert(classes[0][0] == 2, classes[0][0]);
+        console.assert(scores[0][0] > 0.95, scores[0][0]);
 
         var box = boxes[0][0];
         console.assert(550 < box[0]);

@@ -104,4 +104,4 @@ def test_tf_js_boxes():
     # As above, you can comment this out to test in JS, but here you
     # must also set the `bounding_boxes` variable to true in the test
     # script.
-    # shutil.rmtree(TEST_SAVE_MODEL, ignore_errors=True)
+    shutil.rmtree(TEST_SAVE_MODEL, ignore_errors=True)
