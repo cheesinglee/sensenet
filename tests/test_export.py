@@ -7,7 +7,7 @@ import shutil
 
 from PIL import Image
 
-from sensenet.models.wrappers import to_tflite
+from sensenet.models.wrappers import to_tflite, to_tfjs
 
 from .utils import TEST_DATA_DIR, TEST_IMAGE_DATA
 from .test_pretrained import create_image_model
@@ -78,3 +78,30 @@ def test_tf_lite_boxes():
             assert cls == 2
 
     shutil.rmtree(TEST_SAVE_MODEL)
+
+def test_tf_js_classifier():
+    shutil.rmtree(TEST_SAVE_MODEL, ignore_errors=True)
+
+    pixel_input = {'input_image_format': 'pixel_values'}
+    model = create_image_model('mobilenetv2', pixel_input)
+
+    to_tfjs(model, TEST_SAVE_MODEL)
+
+    # Commenting this delete out will allow you to test the exported
+    # model with nodejs/tensorflowjs/canvas, if you have these things
+    # installed, using the test_model.js script in this directory, by
+    # navigating to sensenet/tests and running `node test_model.js`.
+    shutil.rmtree(TEST_SAVE_MODEL, ignore_errors=True)
+
+def test_tf_js_boxes():
+    shutil.rmtree(TEST_SAVE_MODEL, ignore_errors=True)
+
+    pixel_input = {'input_image_format': 'pixel_values'}
+    model = create_image_model('tinyyolov4', pixel_input)
+
+    to_tfjs(model, TEST_SAVE_MODEL)
+
+    # As above, you can comment this out to test in JS, but here you
+    # must also set the `bounding_boxes` variable to true in the test
+    # script.
+    shutil.rmtree(TEST_SAVE_MODEL, ignore_errors=True)

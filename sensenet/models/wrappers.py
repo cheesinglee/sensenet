@@ -3,12 +3,41 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 
 import json
+import os
+import tempfile
 
 from sensenet.accessors import is_yolo_model, get_output_exposition
 from sensenet.load import load_points
 from sensenet.models.bounding_box import box_detector
 from sensenet.models.deepnet import deepnet_model
 from sensenet.models.settings import ensure_settings
+
+def get_tf_model(model_or_spec, settings):
+    """Convenience function for getting a tf.keras model from a wrapper or
+    JSON file.
+
+    The input to this function can be one of the model wrapper classes
+    (e.g., ObjectDetector), a dict used to instantiate a wrapper, or
+    the path to a file containing JSON for such a dict.
+
+    """
+    if isinstance(model_or_spec, tf.keras.Model):
+        return model_or_spec
+    elif isinstance(model_or_spec, (Deepnet, ObjectDetector)):
+        return model_or_spec._model
+    else:
+        if isinstance(model_or_spec, dict):
+            model_dict = model_or_spec
+        else:
+            with open(model_or_spec, 'r') as fin:
+                model_dict = json.load(fin)
+
+        model_settings = ensure_settings(settings)
+        # This is the only valid input format for tflite; it doesn't
+        # know how to read files (as of TF 2.3)
+        model_settings.input_image_format = 'pixel_values'
+
+        return create_model(model_dict, settings=export_settings)._model
 
 def tflite_export(tf_model, model_path):
     converter = tf.lite.TFLiteConverter.from_keras_model(tf_model)
@@ -19,6 +48,13 @@ def tflite_export(tf_model, model_path):
             fout.write(tflite_model)
 
     return tflite_model
+
+def tfjs_export(tf_model, save_path):
+    import tensorflowjs as tfjs
+
+    with tempfile.TemporaryDirectory() as saved_model_temp:
+        tf_model.save(saved_model_temp)
+        tfjs.converters.convert_tf_saved_model(saved_model_temp, save_path)
 
 def to_tflite(model_or_spec, output_path, sensenet_settings=None):
     """Convert some structure describing a wrapped model to a tflite file.
@@ -37,25 +73,27 @@ def to_tflite(model_or_spec, output_path, sensenet_settings=None):
     Returns the converted model in tflite as a `bytes`.
 
     """
-    if isinstance(model_or_spec, tf.keras.Model):
-        model = model_or_spec
-    elif isinstance(model_or_spec, (Deepnet, ObjectDetector)):
-        model = model_or_spec._model
-    else:
-        if isinstance(model_or_spec, dict):
-            model_dict = model_or_spec
-        else:
-            with open(model_or_spec, 'r') as fin:
-                model_dict = json.load(fin)
-
-        export_settings = ensure_settings(sensenet_settings)
-        # This is the only valid input format for tflite; it doesn't
-        # know how to read files (as of TF 2.3)
-        export_settings.input_image_format = 'pixel_values'
-
-        model = create_model(model_dict, settings=export_settings)._model
-
+    model = get_tf_model(model_or_spec, sensenet_settings)
     return tflite_export(model, output_path)
+
+def to_tfjs(model_or_spec, output_path, sensenet_settings=None):
+    """Convert some structure describing a wrapped model to a tfjs output
+    directory.
+
+    The first input to this function can be one of the model wrapper
+    classes (e.g., ObjectDetector), a dict used to instantiate a
+    wrapper, or the path to a file containing JSON for such a dict.
+
+    The second is the desired path to the tfjs output files.
+
+    Optionally, one may provide a dict of settings for the model,
+    which can contain things like the IOU threshold for non-max
+    suppression (see sensenet.model.settings).  Note that if the input
+    is an already-instantiated model, this argument is ignored.
+
+    """
+    model = get_tf_model(model_or_spec, sensenet_settings)
+    return tfjs_export(model, output_path)
 
 class Deepnet(object):
     def __init__(self, model, settings):
