@@ -49,5 +49,6 @@ setup(
     test_suite='nose.collector',
     install_requires=[
         'numpy>=1.18,<1.19',
-        'tensorflow>=2.3,<2.4'
+        'tensorflow>=2.4,<2.5',
+        'tensorflowjs>=2.7,<2.8'
     ])
