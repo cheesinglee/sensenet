@@ -121,6 +121,10 @@ class Deepnet(object):
             else:
                 # Properly wrapped instance
                 return self.predict(input_data)
+        # Pixel-valued ndarray input image; will only work for single images
+        elif isinstance(input_data, np.ndarray) and len(input_data.shape) == 3:
+            array = np.expand_dims(input_data, axis=0)
+            return self.predict(array)
         # Single image path or text field
         elif isinstance(input_data, str):
             return self.predict([[input_data]])
