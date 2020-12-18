@@ -5,7 +5,8 @@ kl = sensenet.importers.import_keras_layers()
 
 from sensenet.layers.block import BlockLayer
 from sensenet.layers.construct import layer_sequence
-from sensenet.preprocess.image import get_image_reader_fn
+from sensenet.models.settings import Settings
+from sensenet.preprocess.image import make_image_reader
 
 from .utils import make_model
 
@@ -162,7 +163,8 @@ def test_dropblock():
                     'rate': 0.1}]
     }
 
-    reader = get_image_reader_fn(image_shape, 'file', 'tests/data/images')
+    settings = Settings({'image_path_prefix': 'tests/data/images'})
+    reader = make_image_reader(settings, image_shape, False)
     lseq = layer_sequence(network)
     model = make_model(lseq, image_shape[1:])
     pizzas = ['pizza_people.jpg'] * 16

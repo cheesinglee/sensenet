@@ -20,6 +20,14 @@ def get_image_shape(anobject):
 
     return [None, ishape[1], ishape[0], ishape[2]]
 
+def get_image_tensor_shape(settings):
+    if settings.color_space and settings.color_space.lower()[-1] == 'a':
+        nchannels = 4
+    else:
+        nchannels = 3
+
+    return (None, None, nchannels)
+
 def get_output_exposition(model):
     if 'output_exposition' in model:
         return model['output_exposition']

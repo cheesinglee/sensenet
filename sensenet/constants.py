@@ -32,6 +32,11 @@ IMAGE_STANDARDIZERS = {
     'channelwise_standardizing': (TORCH_MEAN, TORCH_STD)
 }
 
+# Ways to scale image to input size
+WARP = 'warp'
+PAD = 'pad'
+PAD_OR_CROP = 'pad_or_crop'
+
 # Default parameters for YOLO bounding box detection
 MAX_OBJECTS = 32
 SCORE_THRESHOLD = 0.5

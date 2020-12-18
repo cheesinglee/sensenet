@@ -11,8 +11,8 @@ from sensenet.accessors import get_image_shape
 from sensenet.load import load_points
 from sensenet.models.image import pretrained_image_model, image_feature_extractor
 from sensenet.models.image import image_layers, get_pretrained_network
-from sensenet.models.settings import Settings
-from sensenet.preprocess.image import get_image_reader_fn
+from sensenet.models.settings import Settings, ensure_settings
+from sensenet.preprocess.image import make_image_reader
 
 from .utils import TEST_DATA_DIR, TEST_IMAGE_DATA
 
@@ -31,11 +31,14 @@ def create_image_model(network_name, additional_settings):
 
     return pretrained_image_model(network_name, Settings(extras))
 
-def reader_for_network(network_name):
-    image_shape = get_image_shape(get_pretrained_network(network_name))
-    path_prefix = EXTRA_PARAMS['image_path_prefix']
+def reader_for_network(network_name, additional_settings):
+    extras = dict(EXTRA_PARAMS)
 
-    return get_image_reader_fn(image_shape, 'file', path_prefix)
+    if additional_settings:
+        extras.update(additional_settings)
+
+    image_shape = get_image_shape(get_pretrained_network(network_name))
+    return make_image_reader(Settings(extras), image_shape, False)
 
 def classify(network_name, accuracy_threshold):
     pixel_input = {'input_image_format': 'pixel_values'}
@@ -47,7 +50,7 @@ def classify(network_name, accuracy_threshold):
 
     image_model = create_image_model(network_name, None)
     pixel_model = create_image_model(network_name, pixel_input)
-    read = reader_for_network(network_name)
+    read = reader_for_network(network_name, None)
 
     assert len(image_layers(pixel_model)) == nlayers
 
@@ -97,7 +100,7 @@ def detect_bounding_boxes(network_name, nboxes, class_list, threshold):
 
     image_detector = create_image_model(network_name, file_input)
     pixel_detector = create_image_model(network_name, pixel_input)
-    read = reader_for_network(network_name)
+    read = reader_for_network(network_name, {'rescale_type': 'pad'})
 
     file_pred = image_detector.predict([['pizza_people.jpg']])
     img_px = np.expand_dims(read('pizza_people.jpg').numpy(), axis=0)

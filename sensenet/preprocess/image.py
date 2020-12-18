@@ -3,7 +3,7 @@ import os
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
-from sensenet.constants import IMAGE_STANDARDIZERS
+from sensenet.constants import IMAGE_STANDARDIZERS, WARP, PAD, PAD_OR_CROP
 from sensenet.accessors import get_image_shape
 from sensenet.layers.utils import constant, propagate
 from sensenet.layers.construct import layer_sequence
@@ -12,29 +12,44 @@ CONTRAST_LIMIT = 0.25
 EXPECTED_LOW = 255 * CONTRAST_LIMIT
 EXPECTED_HIGH = 255 * (1 - CONTRAST_LIMIT)
 
-def scale_for_box(input_dims, target_dims):
+def scale_for_box(input_dims, target_dims, minimum):
     y_scale = target_dims[0] / input_dims[0]
     x_scale = target_dims[1] / input_dims[1]
 
-    return tf.math.minimum(x_scale, y_scale)
+    if minimum:
+        return tf.math.minimum(x_scale, y_scale)
+    else:
+        return tf.math.maximum(x_scale, y_scale)
 
-def resize_and_pad(image, input_dims, target_dims):
-    # Assume both input_dims and target_dims are [h, w, channels]
-    img_shape = tf.cast(input_dims, tf.float32)
-    box_scale = scale_for_box(img_shape, tf.cast(target_dims, tf.float32))
-    out_shape = tf.cast(tf.math.round(img_shape * box_scale), tf.int32)
+def resize_with_crop_or_pad(settings, target_dims, image):
+    pad_only = settings.rescale_type == PAD
 
-    pad_h = [0, target_dims[0] - out_shape[0]]
-    pad_w = [0, target_dims[1] - out_shape[1]]
-
+    # Assume target_dims are [h, w, channels]
     if len(image.shape) == 3:
-        pad = [pad_h, pad_w, [0, 0]]
+        in_dims = tf.cast(tf.shape(image)[:2], tf.float32)
     elif len(image.shape) == 4:
-        pad = [[0, 0], pad_h, pad_w, [0, 0]]
+        in_dims = tf.cast(tf.shape(image)[1:3], tf.float32)
 
-    img = tf.image.resize(image, out_shape, method='nearest')
+    out_dims = tf.cast(target_dims, tf.float32)
 
-    return tf.pad(img, pad, constant_values=tf.reduce_mean(img))
+    box_scale = scale_for_box(in_dims, out_dims, pad_only)
+    scaled_dims = tf.cast(tf.math.round(in_dims * box_scale), tf.int32)
+    scaled = tf.image.resize(image, scaled_dims, method='nearest')
+
+    if pad_only:
+        scaled_dims = tf.cast(scaled_dims, tf.float32)
+        pad_h = [0, out_dims[0] - scaled_dims[0]]
+        pad_w = [0, out_dims[1] - scaled_dims[1]]
+
+        if len(image.shape) == 3:
+            pad = [pad_h, pad_w, [0, 0]]
+        elif len(image.shape) == 4:
+            pad = [[0, 0], pad_h, pad_w, [0, 0]]
+
+        return tf.pad(scaled, pad, constant_values=tf.reduce_mean(scaled))
+    else:
+        height, width = target_dims[0], target_dims[1]
+        return tf.image.resize_with_crop_or_pad(image, height, width)
 
 # Unused right now, but I'll leave it here just in case
 def adjust_contrast(image):
@@ -51,13 +66,39 @@ def adjust_contrast(image):
 
     return tf.image.adjust_contrast(image, adjustment)
 
-def get_image_reader_fn(image_shape, input_format, prefix, pad=False):
-    dims = tf.constant(image_shape[1:3], tf.int32)
-    nchannels = image_shape[-1]
+def rescale(settings, target_shape, image):
+    target_dims = tf.constant(target_shape[1:3], tf.int32)
+
+    if settings.rescale_type is None or settings.rescale_type == WARP:
+        new_image = tf.image.resize(image, target_dims, method='nearest')
+    elif settings.rescale_type in [PAD, PAD_OR_CROP]:
+        new_image = resize_with_crop_or_pad(settings, target_dims, image)
+    else:
+        raise ValueError('Rescale type %s unknown' % settings.rescale_type)
+
+    if image.shape[-1] == 4:
+        if len(image.shape) == 4:
+            new_image = new_image[:,:,:,:3]
+        elif len(image.shape) == 3:
+            new_image = new_image[:,:,:3]
+        else:
+            raise ValueError('Image tensor is rank %d' % len(image.shape))
+    elif image.shape[-1] != 3:
+        raise ValueError('Number of color channels is %d' % image.shape[-1])
+
+    if settings.color_space and settings.color_space.lower().startswith('rgb'):
+        return tf.reverse(new_image, axis[-1])
+    else:
+        return new_image
+
+def make_image_reader(settings, target_shape, return_original_dimensions):
+    nchannels = target_shape[-1]
+    input_format = settings.input_image_format or 'file'
+    prefix = settings.image_path_prefix
 
     def read_image(path_or_bytes):
         if input_format == 'pixel_values':
-            raw_image = path_or_bytes
+            raw = path_or_bytes
         else:
             if input_format == 'file':
                 path = path_or_bytes
@@ -71,17 +112,16 @@ def get_image_reader_fn(image_shape, input_format, prefix, pad=False):
 
             # Note that, spectacularly weirdly, this method will also
             # work for pngs and gifs.  Even wierder, We can't use
-            # decode_image here because the tensor that comes out
+            # `decode_image` here because the tensor that comes out
             # doesn't have a shape!
-            raw_image = tf.io.decode_jpeg(img_bytes,
-                                          dct_method='INTEGER_ACCURATE',
-                                          channels=nchannels)
+            raw = tf.io.decode_jpeg(img_bytes,
+                                    dct_method='INTEGER_ACCURATE',
+                                    channels=nchannels)
 
-        if pad:
-            img_shape = tf.shape(raw_image)
-            return resize_and_pad(raw_image, img_shape[:2], dims), img_shape
+        if return_original_dimensions:
+            return rescale(settings, target_shape, raw), tf.shape(raw)
         else:
-            return tf.image.resize(raw_image, dims, method='nearest')
+            return rescale(settings, target_shape, raw)
 
     return read_image
 
@@ -90,23 +130,15 @@ class ImageReader(tf.keras.layers.Layer):
         super(ImageReader, self).__init__()
 
         self._input_shape = get_image_shape(network)
-        self._path_prefix = settings.image_path_prefix
-        self._input_format = settings.input_image_format or 'file'
-
-    def make_reader(self, do_padding):
-        return get_image_reader_fn(self._input_shape,
-                                   self._input_format,
-                                   self._path_prefix,
-                                   pad=do_padding)
+        self._settings = settings
 
     def build(self, input_shape):
-        if self._input_format != 'pixel_values':
-            self._read = self.make_reader(False)
+        self._read = make_image_reader(self._settings, self._input_shape, False)
 
     def call(self, inputs):
-        if self._input_format == 'pixel_values':
+        if self._settings.input_image_format == 'pixel_values':
             dims = tf.constant(self._input_shape[1:3], tf.int32)
-            images = tf.image.resize(inputs, dims, method='nearest')
+            images = rescale(self._settings, self._input_shape, inputs)
         else:
             images = tf.map_fn(self._read, inputs, fn_output_signature=tf.uint8)
 
@@ -117,19 +149,18 @@ class BoundingBoxImageReader(ImageReader):
         super(BoundingBoxImageReader, self).__init__(network, settings)
 
     def build(self, input_shape):
-        if self._input_format != 'pixel_values':
-            self._read = self.make_reader(True)
+        self._read = make_image_reader(self._settings, self._input_shape, True)
 
     def call(self, inputs):
-        if self._input_format == 'pixel_values':
+        if self._settings.input_image_format == 'pixel_values':
             dims = tf.constant(self._input_shape[1:3], tf.int32)
-            image = resize_and_pad(inputs, tf.shape(inputs)[1:3], dims)
+            image = rescale(self._settings, self._input_shape, inputs)
             original_dims = tf.expand_dims(tf.shape(inputs)[1:], axis=0)
         else:
             # We're explicitly saying here we only take one filename at
             # a time; if multiple files are passed in, all but the first
             # one are ignored.
-            image, dims = self._read(inputs[0,0])
+            image, dims = self._read(inputs[0, 0])
             image = tf.expand_dims(image, axis=0)
             original_dims = tf.expand_dims(dims, axis=0)
 
