@@ -35,7 +35,7 @@ IMAGE_STANDARDIZERS = {
 # Ways to scale image to input size
 WARP = 'warp'
 PAD = 'pad'
-PAD_OR_CROP = 'pad_or_crop'
+CROP = 'crop'
 
 # Default parameters for YOLO bounding box detection
 MAX_OBJECTS = 32

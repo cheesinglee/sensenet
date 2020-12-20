@@ -40,6 +40,13 @@ def reader_for_network(network_name, additional_settings):
     image_shape = get_image_shape(get_pretrained_network(network_name))
     return make_image_reader(Settings(extras), image_shape, False)
 
+def check_image_prediction(prediction, index, pos_threshold, neg_threshold):
+    for i, p in enumerate(prediction.flatten().tolist()):
+        if i == index:
+            assert p > pos_threshold, str((i, p))
+        else:
+            assert p < neg_threshold, str((i, p))
+
 def classify(network_name, accuracy_threshold):
     pixel_input = {'input_image_format': 'pixel_values'}
 
@@ -66,11 +73,7 @@ def classify(network_name, accuracy_threshold):
         pixel_pred = pixel_model.predict(img_px)
 
         for pred in [file_pred, pixel_pred]:
-            for i, p in enumerate(pred.flatten().tolist()):
-                if i == cidx:
-                    assert p > accuracy_threshold, str((i, p))
-                else:
-                    assert p < 0.02, str((i, p))
+            check_image_prediction(pred, cidx, accuracy_threshold, 0.02)
 
     outputs = ex_mod(load_points(preprocessors, [['dog.jpg'], ['bus.jpg']]))
     assert outputs.shape == (2, noutputs)

@@ -1,4 +1,4 @@
-from sensenet.constants import WARP, PAD, PAD_OR_CROP
+from sensenet.constants import WARP, PAD, CROP
 
 COLOR_SPACES = ['bgr', 'rgb', 'bgra', 'rgba']
 COLOR_SPACES += [f.upper() for f in COLOR_SPACES]
@@ -13,7 +13,7 @@ OPTIONAL = {
     'max_objects': int,
     'output_unfiltered_boxes': bool,
     'regression_normalize': bool,
-    'rescale_type': [WARP, PAD, PAD_OR_CROP]
+    'rescale_type': [WARP, PAD, CROP]
 }
 
 REQUIRED = {}

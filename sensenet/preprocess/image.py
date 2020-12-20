@@ -3,7 +3,7 @@ import os
 import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 
-from sensenet.constants import IMAGE_STANDARDIZERS, WARP, PAD, PAD_OR_CROP
+from sensenet.constants import IMAGE_STANDARDIZERS, WARP, PAD, CROP
 from sensenet.accessors import get_image_shape
 from sensenet.layers.utils import constant, propagate
 from sensenet.layers.construct import layer_sequence
@@ -71,7 +71,7 @@ def rescale(settings, target_shape, image):
 
     if settings.rescale_type is None or settings.rescale_type == WARP:
         new_image = tf.image.resize(image, target_dims, method='nearest')
-    elif settings.rescale_type in [PAD, PAD_OR_CROP]:
+    elif settings.rescale_type in [PAD, CROP]:
         new_image = resize_with_crop_or_pad(settings, target_dims, image)
     else:
         raise ValueError('Rescale type %s unknown' % settings.rescale_type)
@@ -86,8 +86,8 @@ def rescale(settings, target_shape, image):
     elif image.shape[-1] != 3:
         raise ValueError('Number of color channels is %d' % image.shape[-1])
 
-    if settings.color_space and settings.color_space.lower().startswith('rgb'):
-        return tf.reverse(new_image, axis[-1])
+    if settings.color_space and settings.color_space.lower().startswith('bgr'):
+        return tf.reverse(new_image, axis=[-1])
     else:
         return new_image
 
