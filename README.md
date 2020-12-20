@@ -34,6 +34,19 @@ settings which may contain:
   will have the effect of more (possibly spurious) boxes identified in
   each input image.
 
+- `color_space`: A string which is One of `['rgb', 'rgba', 'bgr',
+  'bgra']`.  The first three letters give the order of the color
+  channels (red, blue, and green) in the input tensors that will be
+  passed to the model.  The final presense or absence of an `'a'`
+  indicates that an alpha channel will be present (which will be
+  ignored).  This can be useful to match the color space of the output
+  model to that provided by another library, such as open CV.  Note
+  that TensorFlow uses RGB ordering by default, and all files read by
+  tensorflow are automatically read as RGB files.  This argument is
+  generally only necessary if `input_image_format` is
+  `'pixel_values'`, and will possibly break predictions if specified
+  when the input is a file.
+
 - `image_path_prefix`: A string directory indicating the path where
   images are to be found for image predictions.  When an image path is
   passed at prediction time, this string is prepended to the given
@@ -55,6 +68,22 @@ settings which may contain:
 - `max_objects`: The maximum number of bounding boxes to return for
   each image.  The default is 32.
 
+- `rescale_type`: A string which is one of `['warp', 'pad', 'crop']`.
+  If `'warp'`, input images are scaled to the input dimensions
+  specified in the network, and their aspect ratios are *not*
+  preserved.  If `'pad'`, the image is resized to the smallest
+  dimensions such that the image fits into the input dimensions of the
+  network, then padded with constant pixels either below or to the
+  right to create an appropriately sized image.  For example, if the
+  input dimesions of the network are 100 x 100, and we attempt to
+  classify a 300 x 600 image, the image is first rescaled to 50 x 100
+  (preserving its aspect ratio) then padded on the right to create a
+  100 x 100 image.  If `'crop'`, the image is resized to the smallest
+  dimension such that the input dimensions fit in the image, then the
+  image is centrally cropped to make the specified sizes.  Using the
+  sizes in previous example, the image would be rescaled to 100 x 200
+  (preserving its aspect ratio) then cropped by 50 pixels on the top
+  and bottom to create a 100 x 100 image.
 
 ## Usage
 
