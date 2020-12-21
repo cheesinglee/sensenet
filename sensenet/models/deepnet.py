@@ -2,8 +2,9 @@ import sensenet.importers
 tf = sensenet.importers.import_tensorflow()
 kl = sensenet.importers.import_keras_layers()
 
-from sensenet.constants import IMAGE_PATH, NUMERIC, CATEGORICAL
 from sensenet.accessors import get_image_shape, get_output_exposition
+from sensenet.accessors import get_image_tensor_shape
+from sensenet.constants import IMAGE_PATH, NUMERIC, CATEGORICAL
 from sensenet.layers.construct import layer_sequence, tree_preprocessor
 from sensenet.layers.utils import propagate
 from sensenet.load import load_points
@@ -19,7 +20,8 @@ def instantiate_inputs(model, settings):
 
     if ncols == 1 and settings.input_image_format == 'pixel_values':
         assert ptypes[0] == IMAGE_PATH
-        return kl.Input((None, None, 3), dtype=tf.float32, name='image')
+        image_shape = get_image_tensor_shape(settings)
+        return kl.Input(image_shape, dtype=tf.float32, name='image')
     else:
         return {
             'numeric': kl.Input((ncols,), dtype=tf.float32, name='numeric'),

@@ -1,12 +1,19 @@
+from sensenet.constants import WARP, PAD, CROP
+
+COLOR_SPACES = ['bgr', 'rgb', 'bgra', 'rgba']
+COLOR_SPACES += [f.upper() for f in COLOR_SPACES]
+
 OPTIONAL = {
     'bounding_box_threshold': [1e-8, 1.0],
+    'color_space': COLOR_SPACES,
     'image_path_prefix': str,
     'input_image_format': str,
     'iou_threshold': [1e-8, 1.0],
     'load_pretrained_weights': bool,
     'max_objects': int,
     'output_unfiltered_boxes': bool,
-    'regression_normalize': bool
+    'regression_normalize': bool,
+    'rescale_type': [WARP, PAD, CROP]
 }
 
 REQUIRED = {}

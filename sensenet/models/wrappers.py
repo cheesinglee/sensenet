@@ -7,6 +7,7 @@ import os
 import tempfile
 
 from sensenet.accessors import is_yolo_model, get_output_exposition
+from sensenet.constants import PAD
 from sensenet.load import load_points
 from sensenet.models.bounding_box import box_detector
 from sensenet.models.deepnet import deepnet_model
@@ -23,7 +24,7 @@ def get_tf_model(model_or_spec, settings):
     """
     if isinstance(model_or_spec, tf.keras.Model):
         return model_or_spec
-    elif isinstance(model_or_spec, (Deepnet, ObjectDetector)):
+    elif isinstance(model_or_spec,(Deepnet, ObjectDetector)):
         return model_or_spec._model
     else:
         if isinstance(model_or_spec, dict):
@@ -121,6 +122,10 @@ class Deepnet(object):
             else:
                 # Properly wrapped instance
                 return self.predict(input_data)
+        # Pixel-valued ndarray input image; will only work for single images
+        elif isinstance(input_data, np.ndarray) and len(input_data.shape) == 3:
+            array = np.expand_dims(input_data, axis=0)
+            return self._model.predict(array)
         # Single image path or text field
         elif isinstance(input_data, str):
             return self.predict([[input_data]])

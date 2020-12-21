@@ -3,9 +3,10 @@ np = sensenet.importers.import_numpy()
 tf = sensenet.importers.import_tensorflow()
 kl = sensenet.importers.import_keras_layers()
 
-from sensenet.constants import MAX_OBJECTS
+from sensenet.constants import PAD, MAX_OBJECTS
 from sensenet.constants import SCORE_THRESHOLD, IGNORE_THRESHOLD, IOU_THRESHOLD
 from sensenet.accessors import number_of_classes, get_image_shape
+from sensenet.accessors import get_image_tensor_shape
 from sensenet.layers.yolo import YoloTrunk, YoloBranches
 from sensenet.models.settings import ensure_settings
 from sensenet.preprocess.image import BoundingBoxImageReader, ImageLoader
@@ -108,6 +109,7 @@ class BoxLocator(tf.keras.layers.Layer):
 
 def box_detector(model, input_settings):
     settings = ensure_settings(input_settings)
+    settings.rescale_type = PAD
 
     network = model['image_network']
     reader = BoundingBoxImageReader(network, settings)
@@ -119,7 +121,8 @@ def box_detector(model, input_settings):
     locator = BoxLocator(network, nclasses, settings)
 
     if settings.input_image_format == 'pixel_values':
-        image_input = kl.Input((None, None, 3), dtype=tf.float32, name='image')
+        image_shape = get_image_tensor_shape(settings)
+        image_input = kl.Input(image_shape, dtype=tf.float32, name='image')
     else:
         image_input = kl.Input((1,), dtype=tf.string, name='image')
 
